@@ -1,0 +1,36 @@
+model:
+  model_path: ""
+  quantization: 8 # 8 or 4 if you want to do quantization with BitsAndBytes
+  device_map: 'cuda' # only cuda now
+  torch_dtype: 'bfloat16'
+  lora:
+    peft_lora_r: 8
+    peft_lora_alpha: 16
+sft:
+  learning_rate_max: 5e-5
+  learning_rate_min: 1e-6
+  dataset_sample: 200
+  max_seq_length: 2048
+  training_arguments:
+    output_dir: "./output" # to be set by hydra
+    overwrite_output_dir: True
+    remove_unused_columns: True
+    seed: 1234
+    learning_rate: 5e-6 # to be set by the client
+    per_device_train_batch_size: 4
+    per_device_eval_batch_size: 4
+    gradient_accumulation_steps: 1
+    logging_steps: 20
+    log_level: "info"
+    logging_strategy: "steps"
+    num_train_epochs: 1
+    max_steps: -1
+    save_steps: 100
+    save_total_limit: 1
+    gradient_checkpointing: True
+    lr_scheduler_type: "cosine"
+    warmup_ratio: 0.2
+    do_eval: False
+dataset_name: ""
+num_rounds: 1
+num_clients: 2
