@@ -26,6 +26,12 @@ To start the federated learning fine-tuning process, run the following command:
 python main_simple_fl.py
 ```
 
+## Support Blockchain
+
+We dsign a basic blockchain protocol (`utils/blockchain.py`) to measure and reward clients in our federated learning setup. We'll use the number of parameters as the main factor for rewards.
+
+Under Construction .. 
+
 ## Additional Information
 
 For more details on the project's implementation and usage, please refer to the documentation provided in the repository.
