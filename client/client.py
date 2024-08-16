@@ -1,12 +1,23 @@
+import os
+from os import path
+import sys
+
+sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from transformers import TrainingArguments
 from trl import SFTTrainer
 from peft import set_peft_model_state_dict, get_peft_model_state_dict
 from collections import OrderedDict
+from datasets import load_dataset
 from omegaconf import OmegaConf
+from utils.process_data import apply_chat_template
+from utils.models import get_model_and_tokenizer
+from utils.differential_privacy import clip_l2_norm, local_add_gaussian_noise
 import math
 import copy
-import os
 import torch
+import socket
+import pickle
+import numpy as np
 
 
 def cosine_lr(
@@ -23,18 +34,58 @@ def cosine_lr(
 
 
 class BaseClient:
-    def __init__(
-        self, client_id, cfg_path, model, tokenizer, train_dataset, test_dataset
-    ):
+    def __init__(self, client_id, cfg_path):
+        self.cfg_path = cfg_path
         self.config_detail = OmegaConf.load(cfg_path)
-        self.model = model
+        self.model = None
+        self.tokenizer = None
         self.client_id = client_id
-        self.tokenizer = tokenizer
         self.training_args = TrainingArguments(
             **self.config_detail.sft.training_arguments
         )
-        self.train_dataset = train_dataset
-        self.test_dataset = test_dataset
+        self.train_dataset = None
+        self.test_dataset = None
+        self.host = self.config_detail.client.host
+        self.port = self.config_detail.client.port
+
+    def prepare_dataset(self):
+        trainset_full = load_dataset(self.config_detail.datasetname, split="train")
+        train_dataset = trainset_full["train"]
+        test_dataset = trainset_full["test"]
+        column_names = list(train_dataset.features)
+        self.train_dataset = train_dataset.map(
+            apply_chat_template,
+            fn_kwargs={"tokenizer": self.tokenizer},
+            num_proc=10,
+            remove_columns=column_names,
+            desc="Applying chat template to train_sft",
+        )
+
+        self.test_dataset = test_dataset.map(
+            apply_chat_template,
+            fn_kwargs={"tokenizer": self.tokenizer},
+            num_proc=10,
+            remove_columns=column_names,
+            desc="Applying chat template to test_sft",
+        )
+
+    def local_dataset(self):  # TODO Only for local test, will remove later
+        from utils.process_data import build_dataset
+
+        train_dataset_split, processed_test_dataset = build_dataset(
+            self.tokenizer, self.config_detail.dataset_name, self.config_detail.num_clients
+        )
+        self.train_dataset = train_dataset_split[0]
+        self.test_dataset = processed_test_dataset
+
+    def init_local_model(self):
+        self.model, self.tokenizer = get_model_and_tokenizer(self.cfg_path)
+        self.model.print_trainable_parameters()
+        self.model.config.use_cache = (
+            False  # silence the warnings. Please re-enable for inference!
+        )
+        if self.config_detail.sft.training_arguments.gradient_checkpointing:
+            self.model.enable_input_require_grads()
 
     def initiate_local_training(self):
         self.model.config.use_cache = False
@@ -56,14 +107,7 @@ class BaseClient:
             )
         ).__get__(self.model, type(self.model))
 
-    def local_trainer_set(self, current_round):
-        new_lr = cosine_lr(
-            int(current_round),
-            self.config_detail.num_rounds,
-            self.config_detail.sft.learning_rate_max,
-            self.config_detail.sft.learning_rate_min,
-        )
-        self.training_args.learning_rate = new_lr
+    def local_trainer_set(self):
         self.trainer = SFTTrainer(
             model=self.model,
             tokenizer=self.tokenizer,
@@ -78,12 +122,10 @@ class BaseClient:
         results = self.trainer.train()
         return results.training_loss
 
-    def save(self, current_round, local_dataset_len_dict):
-        local_dataset_len_dict[self.client_id] = len(self.train_dataset)
+    def save(self):
         new_adapter_weight = self.model.state_dict()
         single_output_dir = os.path.join(
             self.training_args.output_dir,
-            str(current_round),
             "local_output_{}".format(self.client_id),
         )
         os.makedirs(single_output_dir, exist_ok=True)
@@ -94,4 +136,54 @@ class BaseClient:
         )
         set_peft_model_state_dict(self.model, older_adapter_weight, "default")
 
-        return self.model, local_dataset_len_dict
+        return len(self.train_dataset), new_adapter_weight
+
+    def start(self):
+        self.init_local_model()
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((self.host, self.port))
+            print(f"Connected to {self.host}:{self.port}")
+
+            # self.prepare_dataset()
+            self.local_dataset()
+            self.initiate_local_training()
+            self.local_trainer_set()
+            self.train()
+            # No need to save the current training weights on the client.
+            ## train_dataset_len, new_model_weight = self.save()
+            # Only returns the weight file and related configuration information, without affecting the current client model weight.
+            train_dataset_len, new_model_weight = (
+                len(self.train_dataset),
+                self.model.state_dict(),
+            )
+            # Clipping
+            new_model_weight, _ = clip_l2_norm(new_model_weight,
+                                               self.params_dict_old,
+                                               self.config_detail.sft.clip_threshold,
+                                               self.config_detail.model.device_map)
+            # Add gaussian noise
+            if self.config_detail.sft.dp_fedavg_gaussian_enabled is True:
+                std_dev = self.config_detail.sft.sensitivity * np.sqrt(
+                    2 * np.log(1.25 / self.config_detail.sft.delta)
+                ) / self.config_detail.sft.epsilon
+                new_model_weight = local_add_gaussian_noise(new_model_weight,
+                                                            std_dev,
+                                                            self.config_detail.model.device_map)
+
+            # Send updated weights
+            data = pickle.dumps(
+                {
+                    "client_id": self.client_id,
+                    "train_dataset_length": train_dataset_len,
+                    "new_model_weight": new_model_weight,
+                }
+            )
+            s.sendall(data)
+
+        print("Training complete, weights sent to server")
+
+
+if __name__ == "__main__":
+    client = BaseClient(client_id="1233", cfg_path="../config.yaml")
+    client.start()

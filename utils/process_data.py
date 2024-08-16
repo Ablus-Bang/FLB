@@ -24,7 +24,7 @@ def split_dataset(dataset, num_clients, seed=1234):
 
 
 def build_dataset(
-    tokenizer, datasetname, num_clients, test_size=0.1, seed=1234, dataset_sample=3000
+    tokenizer, datasetname, num_clients, test_size=0.1, seed=1234, dataset_sample=200
 ):
     trainset_full = load_dataset(datasetname, split="train")
     train_test = trainset_full.train_test_split(test_size=test_size, seed=seed)
