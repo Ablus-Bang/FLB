@@ -1,8 +1,9 @@
 model:
-  model_path: ""
-  quantization: 8 # 8 or 4 if you want to do quantization with BitsAndBytes
+  model_path: "microsoft/Phi-3-mini-4k-instruct"
+  quantization: 8
   device_map: 'cuda' # only cuda now
   torch_dtype: 'bfloat16'
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
   lora:
     peft_lora_r: 8
     peft_lora_alpha: 16
@@ -11,6 +12,11 @@ sft:
   learning_rate_min: 1e-6
   dataset_sample: 200
   max_seq_length: 2048
+  clip_threshold: 10 # Limit the maximum amplitude of the data before performing sensitivity calculations or adding noise
+  dp_fedavg_gaussian_enabled: True
+  epsilon: 1 # Used to quantify the strength of privacy protection. The smaller ε is, the stronger the privacy protection is. In the context of differential privacy, ε controls the uncertainty in the algorithm output caused by adding noise.
+  sensitivity: 1 # The maximum impact of a single piece of data on the query or analysis results
+  delta: 1e-5 # The upper limit of the probability that the system allows privacy protection to fail is given
   training_arguments:
     output_dir: "./output" # to be set by hydra
     overwrite_output_dir: True
@@ -31,6 +37,15 @@ sft:
     lr_scheduler_type: "cosine"
     warmup_ratio: 0.2
     do_eval: False
-dataset_name: ""
-num_rounds: 1
+client:
+  host: 127.0.0.1
+  port: 8088
+server:
+  host: 127.0.0.1
+  port: 8088
+  redis_url: "redis://localhost:6379?decode_responses=True&health_check_interval=2"
+  clip_threshold: 2
+  noise_multiplier: 1
+dataset_name: "medalpaca/medical_meadow_medical_flashcards"
+num_rounds: 2
 num_clients: 2
