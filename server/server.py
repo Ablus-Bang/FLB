@@ -1,3 +1,5 @@
+import logging
+
 from omegaconf import OmegaConf
 import torch
 import os
@@ -7,11 +9,15 @@ import sys
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from strategy.strategy import Strategy
 from strategy.fedavg import FedAvg
+from calculate import get_latest_folder, get_clients_uploads_after, calculate_client_scores
+from utils.chain_record import send_score
+from datetime import datetime
 import socket
 import pickle
-import redis
-import time
-import uuid
+# import redis
+# import time
+# import uuid
+import json
 
 
 class BaseServer:
@@ -23,36 +29,49 @@ class BaseServer:
         self.num_rounds = self.config_detail.num_rounds
         self.host = self.config_detail.server.host
         self.port = self.config_detail.server.port
-        self.redis_client = redis.from_url(self.config_detail.server.redis_url)
+        # self.redis_client = redis.from_url(self.config_detail.server.redis_url)
         self.save_path = "./save"
         self.strategy = strategy if strategy is not None else FedAvg()
+        self.latest_version = get_latest_folder(self.config_detail.sft.training_arguments.output_dir)
+        self.use_chain = self.config_detail.chain_record
 
-    def aggregate(self, clients_set, dataset_len_dict):
-        if clients_set > 0:
-            curr_version = self.redis_client.get(
-                f"{self.config_detail.model.model_path}_version"
-            )
-            self.model_parameter = self.strategy.aggregate(clients_set,
-                                                           dataset_len_dict,
-                                                           curr_version,
-                                                           self.config_detail.sft.training_arguments.output_dir)
+    def aggregate(self, client_list, dataset_len_list, weight_path_list):
+        self.model_parameter = self.strategy.aggregate(client_list,
+                                                       dataset_len_list,
+                                                       weight_path_list)
 
     def save_model(self):
-        new_version = int(time.time())
+        new_version = datetime.today().strftime("%Y%m%d_%H%M%S")
         torch.save(
             self.model_parameter,
             os.path.join(
                 self.config_detail.sft.training_arguments.output_dir,
-                str(new_version),
+                new_version,
                 "adapter_model.bin",
             ),
         )
-        self.redis_client.set(
-            f"{self.config_detail.model.model_path}_version", new_version
-        )
+        self.latest_version = new_version
+        # self.redis_client.set(
+        #     f"{self.config_detail.model.model_path}_version", new_version
+        # )
+
+    def update(self):
+        """Aggregate model and save new model weight, send reward to each client"""
+        clients_detail, dataset_length_list, path_list = get_clients_uploads_after(self.save_path, self.latest_version)
+        client_list = clients_detail.keys()
+        if client_list > 0:
+            self.aggregate(clients_detail.keys(), dataset_length_list, path_list)
+            self.save_model()
+            # send score to each client address
+            if self.use_chain is True:
+                score_percentage = calculate_client_scores(clients_detail)
+                for user_address, score in score_percentage.items():
+                    send_score(user_address, score)
+        else:
+            logging.info('No new weights from client')
 
     def start(self):
-        current_save_version = str(uuid.uuid1())
+        current_date = datetime.today().strftime("%Y%m%d_%H%M%S")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((self.host, self.port))
             s.listen()
@@ -83,17 +102,20 @@ class BaseServer:
                     client_weights[recv_data["client_id"]] = recv_data[
                         "new_model_weight"
                     ]
-                    #
+
                     client_save_path = os.path.join(
                         self.save_path,
-                        "client:" + str(recv_data["client_id"]),
-                        current_save_version,
+                        "local_output_{}".format(str(recv_data["client_id"])),
+                        current_date.split('_')[0],
+                        current_date.split('_')[1],
                     )
                     os.makedirs(client_save_path, exist_ok=True)
                     torch.save(
                         recv_data["new_model_weight"],
                         client_save_path + "/pytorch_model.bin",
                     )
+                    with open(client_save_path + 'train_dataset_length.json', 'w') as f:
+                        json.dump({"train_dataset_length": recv_data['train_dataset_length']}, f)
 
             # Average the weights
             # self.aggregate(client_list, client_weights)

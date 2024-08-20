@@ -1,0 +1,4 @@
+node_modules
+!artifacts/contracts/ScoreRecord.sol/ScoreRecord.json
+artifacts/*
+cache

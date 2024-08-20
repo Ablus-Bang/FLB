@@ -12,6 +12,7 @@ from omegaconf import OmegaConf
 from utils.process_data import apply_chat_template
 from utils.models import get_model_and_tokenizer
 from utils.differential_privacy import clip_l2_norm, local_add_gaussian_noise
+from utils.chain_record import send_weight
 import math
 import copy
 import torch
@@ -47,6 +48,8 @@ class BaseClient:
         self.test_dataset = None
         self.host = self.config_detail.client.host
         self.port = self.config_detail.client.port
+        self.use_chain = self.config_detail.chain_record
+        self.ldp = self.config_detail.client.local_dp
 
     def prepare_dataset(self):
         trainset_full = load_dataset(self.config_detail.datasetname, split="train")
@@ -157,19 +160,20 @@ class BaseClient:
                 len(self.train_dataset),
                 self.model.state_dict(),
             )
-            # Clipping
-            new_model_weight, _ = clip_l2_norm(new_model_weight,
-                                               self.params_dict_old,
-                                               self.config_detail.sft.clip_threshold,
-                                               self.config_detail.model.device_map)
-            # Add gaussian noise
-            if self.config_detail.sft.dp_fedavg_gaussian_enabled is True:
-                std_dev = self.config_detail.sft.sensitivity * np.sqrt(
-                    2 * np.log(1.25 / self.config_detail.sft.delta)
-                ) / self.config_detail.sft.epsilon
-                new_model_weight = local_add_gaussian_noise(new_model_weight,
-                                                            std_dev,
-                                                            self.config_detail.model.device_map)
+            if self.ldp is True:
+                # Clipping
+                new_model_weight, _ = clip_l2_norm(new_model_weight,
+                                                   self.params_dict_old,
+                                                   self.config_detail.sft.clip_threshold,
+                                                   self.config_detail.model.device_map)
+                # Add gaussian noise
+                if self.config_detail.sft.dp_fedavg_gaussian_enabled is True:
+                    std_dev = self.config_detail.sft.sensitivity * np.sqrt(
+                        2 * np.log(1.25 / self.config_detail.sft.delta)
+                    ) / self.config_detail.sft.epsilon
+                    new_model_weight = local_add_gaussian_noise(new_model_weight,
+                                                                std_dev,
+                                                                self.config_detail.model.device_map)
 
             # Send updated weights
             data = pickle.dumps(
@@ -182,6 +186,9 @@ class BaseClient:
             s.sendall(data)
 
         print("Training complete, weights sent to server")
+        if self.use_chain is True:
+            # record weight to chain
+            send_weight(new_model_weight)
 
 
 if __name__ == "__main__":

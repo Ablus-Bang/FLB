@@ -13,13 +13,11 @@ class DpServerFixedClip(Strategy):
         self.params_current = None
         self.device_map = device_map
 
-    def aggregate(self, clients_set, dataset_len_dict, version, output_dir, clients_weights_dict=None):
+    def aggregate(self, client_list, dataset_len_list, weight_path_list, clients_weights_dict=None):
         clients_weights_dict = dict()
-        for k, client_id in enumerate(clients_set):
+        for k, p in enumerate(weight_path_list):
             single_output_dir = os.path.join(
-                output_dir,
-                str(version),
-                "local_output_{}".format(client_id),
+                p,
                 "pytorch_model.bin",
             )
             single_weights = torch.load(single_output_dir)
@@ -27,12 +25,25 @@ class DpServerFixedClip(Strategy):
                                              self.params_current,
                                              self.clip_threshold,
                                              self.device_map)
-            clients_weights_dict[client_id] = single_weights
+            clients_weights_dict[p] = single_weights
+        # for k, client_id in enumerate(client_list):
+        #     single_output_dir = os.path.join(
+        #         output_dir,
+        #         str(version),
+        #         "local_output_{}".format(client_id),
+        #         "pytorch_model.bin",
+        #     )
+        #     single_weights = torch.load(single_output_dir)
+        #     single_weights, _ = clip_l2_norm(single_weights,
+        #                                      self.params_current,
+        #                                      self.clip_threshold,
+        #                                      self.device_map)
+        #     clients_weights_dict[client_id] = single_weights
 
-        new_weight = self.strategy.aggregate(clients_set, dataset_len_dict, version, output_dir, clients_weights_dict)
+        new_weight = self.strategy.aggregate(dataset_len_list, weight_path_list, clients_weights_dict)
         if new_weight is not None:
             new_weight = add_gaussian_noise(new_weight,
                                             self.noise_multiplier,
                                             self.clip_threshold,
-                                            len(clients_set))
+                                            len(client_list))
         return new_weight
