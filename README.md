@@ -31,6 +31,8 @@ dataset_name： # dataset in Hugging face or local dataset path
 
 ## Local Federated Learning Fine-tuning
 
+**Efficiency**: We consider the use of Parameter-Efficient Fine-Tuning for local clients, such as LoRA. 
+
 To start the framework test on a machine and simulate the federated learning fine-tuning process, run the following command:
 
 ```
@@ -64,7 +66,10 @@ from huggingface_hub import snapshot_download
 snapshot_download(repo_id="microsoft/Phi-3-mini-4k-instruct",local_dir="./model", ignore_patterns=["*.gguf"])
 ```
 
-### Client SFT Finetuning Demo
+### Client SFT Finetuning
+
+We use the LoRA method for finetuning models. 
+
 ```python
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import get_peft_model, LoraConfig,TaskType
@@ -143,6 +148,10 @@ trainer.model.save_pretrained(lora_path)
 tokenizer.save_pretrained(lora_path)
 ```
 
+#### TODO
+[]Q-LoRA  
+[]Q-Bottleneck Adapters  
+[]Q-PrefixTuning  
 
 
 ### Service Model Update
@@ -181,7 +190,7 @@ set_peft_model_state_dict(model,lora_weights)
 model = model.merge_and_unload()
 ```
 
-### TODO
+#### TODO
 []Weight Upload
 
 
@@ -197,15 +206,16 @@ model = model.merge_and_unload()
 Provides fine-tuning processes for open source large models to simplify the deployment, use, and application processes of open source large models.
 
 For the web demo built with streamlit, you can run the program directly using the following command.
+
 ![webdemo](docs/webdemo.png)
-command:
+
 ```
 streamlit run examples/xxx/xxx-web-demo.py --server.address 127.0.0.1 --server.port 8080
 ```
 
 ## Blockchain Support
 
-We develop smart contract on chain to support data record and reward distribution in blockchain.
+**Privacy**: We develop smart contract on chain to support data record and reward distribution in blockchain.
 
 We have deployed a Solidity smart contract on the Cerbo Chain to record user training data and user scores. The files related to the smart contract project are located in the `chain/contract/` directory, developed based on the Hardhat framework, an EVM-based smart contract development environment. Developers can also refer to this contract code to deploy their contracts. For more detailed information, please refer to the smart contract project's [README-Chain](../chain/README.md) document.
 
