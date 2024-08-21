@@ -14,7 +14,6 @@ from utils.chain_record import send_score
 from datetime import datetime
 import socket
 import pickle
-# import redis
 # import time
 # import uuid
 import json
@@ -26,10 +25,8 @@ class BaseServer:
         self.cfg_path = cfg_path
         self.model_parameter = None
         self.num_clients = self.config_detail.num_clients
-        self.num_rounds = self.config_detail.num_rounds
         self.host = self.config_detail.server.host
         self.port = self.config_detail.server.port
-        # self.redis_client = redis.from_url(self.config_detail.server.redis_url)
         self.save_path = "./save"
         self.strategy = strategy if strategy is not None else FedAvg()
         self.latest_version = get_latest_folder(self.config_detail.sft.training_arguments.output_dir)
@@ -51,9 +48,6 @@ class BaseServer:
             ),
         )
         self.latest_version = new_version
-        # self.redis_client.set(
-        #     f"{self.config_detail.model.model_path}_version", new_version
-        # )
 
     def update(self):
         """Aggregate model and save new model weight, send reward to each client"""

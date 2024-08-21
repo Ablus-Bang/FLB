@@ -22,8 +22,10 @@ def get_model_and_tokenizer(cfg_path):
     else:
         torch_dtype = None
 
-    if config_detail.model.device_map in ["cuda", "cpu", "mps"]:  # TODO remove mps
+    if config_detail.model.device_map in ["cuda", "cpu", "mps"]:
         device_map = config_detail.model.device_map
+        if device_map == 'mps':
+            quantization_config = None
     else:
         if torch.cuda.is_available():
             device_map = "cuda"
