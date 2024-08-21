@@ -1,17 +1,19 @@
 import os
 import torch
+from omegaconf import OmegaConf
 from strategy import Strategy
 from utils.differential_privacy import add_gaussian_noise, clip_l2_norm
 
 
 class DpServerFixedClip(Strategy):
-    def __init__(self, strategy: Strategy, noise_multiplier: float, clip_threshold: float, device_map: str):
+    def __init__(self, cfg_path: str, strategy: Strategy):
         super().__init__()
+        self.config_detail = OmegaConf.load(cfg_path)
         self.strategy = strategy
-        self.noise_multiplier = noise_multiplier
-        self.clip_threshold = clip_threshold
+        self.noise_multiplier = self.config_detail.server.noise_multiplier
+        self.clip_threshold = self.config_detail.server.clip_threshold
         self.params_current = None
-        self.device_map = device_map
+        self.device_map = self.config_detail.config_detail.model.device_map
 
     def aggregate(self, client_list, dataset_len_list, weight_path_list, clients_weights_dict=None):
         clients_weights_dict = dict()
@@ -26,20 +28,6 @@ class DpServerFixedClip(Strategy):
                                              self.clip_threshold,
                                              self.device_map)
             clients_weights_dict[p] = single_weights
-        # for k, client_id in enumerate(client_list):
-        #     single_output_dir = os.path.join(
-        #         output_dir,
-        #         str(version),
-        #         "local_output_{}".format(client_id),
-        #         "pytorch_model.bin",
-        #     )
-        #     single_weights = torch.load(single_output_dir)
-        #     single_weights, _ = clip_l2_norm(single_weights,
-        #                                      self.params_current,
-        #                                      self.clip_threshold,
-        #                                      self.device_map)
-        #     clients_weights_dict[client_id] = single_weights
-
         new_weight = self.strategy.aggregate(dataset_len_list, weight_path_list, clients_weights_dict)
         if new_weight is not None:
             new_weight = add_gaussian_noise(new_weight,

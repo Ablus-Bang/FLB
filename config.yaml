@@ -1,19 +1,18 @@
 model:
   model_path: "microsoft/Phi-3-mini-4k-instruct"
-  quantization: 8
-  device_map: 'cuda' # only cuda now
+  quantization: 8 # 4 or 8 or null. Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision.
+  device_map: 'cuda' # support cuda, cpu and mps
   torch_dtype: 'bfloat16'
-  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"] # finetune target layers
   lora:
-    peft_lora_r: 8
-    peft_lora_alpha: 16
+    peft_lora_r: 8 # It determines the rank of the low-rank matrix and affects the representation ability of the model.
+    peft_lora_alpha: 16 # It is a scaling factor that adjusts the contribution of the low-rank matrix to the overall model.
 sft:
   learning_rate_max: 5e-5
   learning_rate_min: 1e-6
-  dataset_sample: 200
-  max_seq_length: 2048
+  max_seq_length: 2048 # The maximum sequence length to use for the `ConstantLengthDataset` and for automaticallty creating the Dataset
   clip_threshold: 10 # Limit the maximum amplitude of the data before performing sensitivity calculations or adding noise
-  dp_fedavg_gaussian_enabled: True
+  dp_fedavg_gaussian_enabled: True # use gaussian noise after dp clipping in client side
   epsilon: 1 # Used to quantify the strength of privacy protection. The smaller ε is, the stronger the privacy protection is. In the context of differential privacy, ε controls the uncertainty in the algorithm output caused by adding noise.
   sensitivity: 1 # The maximum impact of a single piece of data on the query or analysis results
   delta: 1e-5 # The upper limit of the probability that the system allows privacy protection to fail is given
@@ -44,10 +43,8 @@ client:
 server:
   host: 127.0.0.1
   port: 8088
-  redis_url: "redis://localhost:6379?decode_responses=True&health_check_interval=2"
-  clip_threshold: 2
-  noise_multiplier: 1
+  clip_threshold: 2 # dp fixed clipping threshold in server side
+  noise_multiplier: 1 # A larger noise_multiplier means more noise, thus stronger privacy protection, but may also lead to a decrease in model performance. A smaller noise_multiplier may provide better model performance but weaker privacy protection.
 dataset_name: "medalpaca/medical_meadow_medical_flashcards"
-num_rounds: 2
-num_clients: 2
-chain_record: False
+num_clients: 2 # client number in federated learning
+chain_record: False # whether to connect to chain or not

@@ -1,4 +1,4 @@
-Language: [[English]](./README.md) [[中文]](./README-cn.md)
+Language: [[English]](./README.md) [[中文]](../docs/README-Chain-cn.md)
 
 ### Overview
 This is a smart contract project that records compress user train data and user scores 
