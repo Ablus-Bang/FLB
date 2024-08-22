@@ -8,19 +8,23 @@ import torch
 def get_model_and_tokenizer(cfg_path):
     config_detail = OmegaConf.load(cfg_path)
 
-    if config_detail.model.quantization == 4:
-        quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-    elif config_detail.model.quantization == 8:
-        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-    else:
-        quantization_config = None
-
     if config_detail.model.torch_dtype == "bfloat16":
         torch_dtype = torch.bfloat16
     elif config_detail.model.torch_dtype == "float16":
         torch_dtype = torch.float16
     else:
         torch_dtype = None
+
+    if config_detail.model.quantization == 4:
+        quantization_config = BitsAndBytesConfig(load_in_4bit=True,
+                                                 bnb_4bit_quant_type="nf4",
+                                                 bnb_4bit_use_double_quant=True,
+                                                 bnb_4bit_compute_dtype=torch_dtype
+                                                 )
+    elif config_detail.model.quantization == 8:
+        quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+    else:
+        quantization_config = None
 
     if config_detail.model.device_map in ["cuda", "cpu", "mps"]:
         device_map = config_detail.model.device_map
