@@ -1,7 +1,7 @@
 import os
 import torch
 from omegaconf import OmegaConf
-from strategy import Strategy
+from .strategy import Strategy
 from utils.differential_privacy import add_gaussian_noise, clip_l2_norm
 
 
