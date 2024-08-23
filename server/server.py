@@ -1,5 +1,3 @@
-import logging
-
 from omegaconf import OmegaConf
 import torch
 import os
@@ -11,11 +9,14 @@ from .strategy.strategy import Strategy
 from .strategy.fedavg import FedAvg
 from .calculate import get_latest_folder, get_clients_uploads_after, calculate_client_scores
 from utils.chain_record import send_score
-from datetime import datetime
+from datetime import datetime, timedelta
 import socket
 import pickle
-# import time
-# import uuid
+import logging
+import grpc
+from concurrent import futures
+from proto_py import communicate_pb2_grpc
+from .grpc_servicer import WeightsTransferServicer
 import json
 
 
@@ -30,6 +31,13 @@ class BaseServer:
         self.save_path = "./save"
         self.strategy = strategy if strategy is not None else FedAvg()
         self.latest_version = get_latest_folder(self.config_detail.sft.training_arguments.output_dir)
+        if self.latest_version is None:
+            output_path = os.path.join(
+                self.config_detail.sft.training_arguments.output_dir,
+                (datetime.today() - timedelta(days=1)).strftime("%Y%m%d_%H%M%S")
+            )
+            os.makedirs(output_path, exist_ok=True)
+            self.latest_version = output_path
         self.use_chain = self.config_detail.chain_record
 
     def aggregate(self, client_list, dataset_len_list, weight_path_list):
@@ -53,7 +61,7 @@ class BaseServer:
         """Aggregate model and save new model weight, send reward to each client"""
         clients_detail, dataset_length_list, path_list = get_clients_uploads_after(self.save_path, self.latest_version)
         client_list = clients_detail.keys()
-        if client_list > 0:
+        if len(client_list) > 0:
             self.aggregate(clients_detail.keys(), dataset_length_list, path_list)
             self.save_model()
             # send score to each client address
@@ -115,6 +123,14 @@ class BaseServer:
             # self.aggregate(client_list, client_weights)
             # print("Federated learning complete")
             # self.save_model()
+
+    def run_grpc_server(self):
+        grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        communicate_pb2_grpc.add_WeightsTransferServicer_to_server(WeightsTransferServicer(self), grpc_server)
+        grpc_server.add_insecure_port('[::]:50051')
+        grpc_server.start()
+        print("Server started, listening on port 50051.")
+        grpc_server.wait_for_termination()
 
 
 if __name__ == "__main__":
