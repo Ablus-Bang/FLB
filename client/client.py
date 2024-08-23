@@ -190,7 +190,52 @@ class BaseClient:
             # record weight to chain
             send_weight(new_model_weight)
 
+    def run_grpc_client(self):
+        from .grpc_clients.grpc_client import grpc_connection
+        from .grpc_clients.message import SEND_PARAMETERS, ClientSideMessage, ClientSideMetadata
+        server_address = f"{self.config_detail.server.host}:50051"
+        insecure = self.config_detail.client.grpc_insecure
+        auth_cer = self.config_detail.client.grpc_auth_cer_path if self.config_detail.client.grpc_auth_cer_path is not None else None
+        self.init_local_model()
+        self.local_dataset()
+        self.initiate_local_training()
+        self.local_trainer_set()
+        self.train()
+
+        train_dataset_len, new_model_weight = (
+            len(self.train_dataset),
+            self.model.state_dict(),
+        )
+        if self.ldp is True:
+            # Clipping
+            new_model_weight, _ = clip_l2_norm(new_model_weight,
+                                               self.params_dict_old,
+                                               self.config_detail.sft.clip_threshold,
+                                               self.config_detail.model.device_map)
+            # Add gaussian noise
+            if self.config_detail.sft.dp_fedavg_gaussian_enabled is True:
+                std_dev = self.config_detail.sft.sensitivity * np.sqrt(
+                    2 * np.log(1.25 / self.config_detail.sft.delta)
+                ) / self.config_detail.sft.epsilon
+                new_model_weight = local_add_gaussian_noise(new_model_weight,
+                                                            std_dev,
+                                                            self.config_detail.model.device_map)
+        msg_content = {
+            'client_id': self.client_id,
+            'train_dataset_length': train_dataset_len,
+            'new_model_weight': new_model_weight,
+        }
+        msg_data = ClientSideMessage(msg_content, ClientSideMetadata(SEND_PARAMETERS))
+
+        with grpc_connection(server_address, insecure, auth_cer) as (receive, send):
+            response = send(msg_data)
+            print(f"Server response: {response.code}, {response.message}")
+
+        if self.use_chain is True:
+            # record weight to chain
+            send_weight(new_model_weight)
+
 
 if __name__ == "__main__":
     client = BaseClient(client_id="1233", cfg_path="../config.yaml")
-    client.start()
+    client.run_grpc_client()

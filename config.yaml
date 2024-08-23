@@ -1,9 +1,9 @@
 model:
-  model_path: "microsoft/Phi-3-mini-4k-instruct"
-  quantization: 8 # 4 or 8 or null. Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision.
-  device_map: 'cuda' # support cuda, cpu and mps
+  model_path: "HuggingFaceTB/SmolLM-360M-Instruct"
+  quantization: 4 # 4 or 8 or null. Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision.
+  device_map: 'cpu' # support cuda, cpu and mps
   torch_dtype: 'bfloat16'
-  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"] # finetune target layers
+  target_modules: ['down_proj'] # finetune target layers, only `torch.nn.Linear` and `Conv1D` are supported
   lora:
     peft_lora_r: 8 # It determines the rank of the low-rank matrix and affects the representation ability of the model.
     peft_lora_alpha: 16 # It is a scaling factor that adjusts the contribution of the low-rank matrix to the overall model.
@@ -39,7 +39,9 @@ sft:
 client:
   host: 127.0.0.1
   port: 8088
-  local_dp: True
+  local_dp: False
+  grpc_insecure: True # you can turn off this and set grpc_auth_cer_path to use secure gRPC channel
+  grpc_auth_cer_path: null # set your local root certificates path to here
 server:
   host: 127.0.0.1
   port: 8088

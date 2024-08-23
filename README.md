@@ -46,6 +46,25 @@ If you want to use differential privacy in server side, you can set **local_dp**
  python main_simple_fl.py --use_server_dp=true
  ```
 
+We also support [gRPC](https://grpc.io/) for client and server communication, you can run this script to simulate:
+
+```
+python main_fl_grpc_test.py
+```
+
+If you want to use differential privacy in server side, you can set **local_dp** in client block to **False** in `config.yaml` and run:
+ ```
+ python main_fl_grpc_test.py --use_server_dp=true
+ ```
+
+> We support create an insecure and secure gRPC channel, you can set your local [root certificates](https://en.wikipedia.org/wiki/Root_certificate) to config.yaml to use secure channel:
+>  ```
+> client:
+>   grpc_insecure: True # you can set it to False to turn off it and set grpc_auth_cer_path to use secure gRPC channel
+>   grpc_auth_cer_path: null # set your local root certificates path to here
+> ```
+
+
 Now in server side, we have only two strategies under `server/strategy/`, we will add more in the future. 
 - [x] Federate average (default strategy in server side)
 > The central server aggregates the models received from the clients by averaging the model parameters. 

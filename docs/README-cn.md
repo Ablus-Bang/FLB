@@ -27,6 +27,8 @@ dataset_name： # Hugging face中的数据集或本地数据集路径
 ```
 ## 本地联邦学习微调
 
+**效率**：我们考虑对本地客户端使用参数高效微调技术，例如LoRA。
+
 运行以下命令来启动本地联邦学习微调测试：
 
 ```
@@ -38,6 +40,24 @@ python main_simple_fl.py
 ```
 python main_simple_fl.py --use_server_dp=true
 ```
+
+我们还支持使用 [gRPC](https://grpc.io/) 进行客户端和服务器通信，你可以运行以下脚本：
+
+```
+python main_fl_grpc_test.py
+```
+
+如果你想在服务器端使用差分隐私，可以在 `config.yaml` 中将client模块中的 **local_dp** 设置为 **False** 并运行：
+```
+python main_fl_grpc_test.py --use_server_dp=true
+```
+
+> 我们支持创建不安全和安全的 gRPC 通道，你可以将本地 [根证书](https://en.wikipedia.org/wiki/Root_certificate) 设置到 config.yaml 中以使用安全通道进行通信：
+> ```
+> client：
+>   grpc_insecure: True # 设置该值为False来关闭此功能，并设置 grpc_auth_cer_path 以使用安全的 gRPC 通道
+>   grpc_auth_cer_path: null # 将本地证书路径设置到此处
+> ```
 
 现在在服务器端`server/strategy/`下只有两种策略，我们将来会添加更多。
 - [x] Federate average（服务器端默认策略）
@@ -137,6 +157,12 @@ trainer.model.save_pretrained(lora_path)
 tokenizer.save_pretrained(lora_path)
 ```
 
+待办事项
+
+[]Q-LoRA  
+[]Q-Bottleneck Adapters  
+[]Q-PrefixTuning  
+
 ### 模型更新
 ```python
 import torch 
@@ -197,8 +223,10 @@ streamlit run examples/xxx/xxx-web-demo.py --server.address 127.0.0.1 --server.p
 
 ## 支持区块链
 
+**隐私**：我们在链上开发智能合约，以支持区块链中的数据记录和奖励分配。
+
 我们在Cerbo Chain中部署了一个[solidity](https://soliditylang.org/)语言智能合约来记录用户训练数据和用户得分。智能合约项目相关的文件在`chain/contract/`目录下，基于Hardhat框架开发，一个基于EVM虚拟机的智能合约开发环境。
-开发者也可以参考这个合约代码，自行部署合约。关于这方面更详细的信息，请参阅智能合约项目的[README](../chain/contract/README.md)文档。
+开发者也可以参考这个合约代码，自行部署合约。关于这方面更详细的信息，请参阅智能合约项目的[README](../chain/README.md)文档。
 ```solidity
 contract FLB is Ownable {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
