@@ -285,7 +285,13 @@ contract FLB is Ownable {
 }
 ```
 
+### Reward Score Calculation Formula
 Right now we use **number of times to upload weights * size of weight file uploaded each time + total training data volume** as the main factor rewards for each client.
+
+#### TODO 
+- [x] Score = number of times to upload weights * size of weight file uploaded each time + total training data volume
+- [ ] base_factor = number of times to upload weights * size of weight file uploaded each time + total training data volume <br> coefficient = (New_Performance−Original_Performance) / Original_Performance <br> Score = base_factor * coefficient
+
 
 > You can set **chain_record** in `config.yaml` to **True** if you want to connect with blockchain. The default value of **chain_record** is **False**.
 
