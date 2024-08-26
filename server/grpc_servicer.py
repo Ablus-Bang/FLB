@@ -1,4 +1,4 @@
-from proto_py import communicate_pb2_grpc, communicate_pb2
+from utils.proto_py import communicate_pb2_grpc, communicate_pb2
 import os
 import io
 import torch
@@ -8,10 +8,11 @@ from datetime import datetime
 
 def deserialize_model_state_dict(serialized_state_dict):
     state_dict = {}
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     for key, byte_tensor in serialized_state_dict.items():
         # Use a BytesIO object to load the serialized tensor back into a tensor
         buffer = io.BytesIO(byte_tensor)
-        tensor = torch.load(buffer)
+        tensor = torch.load(buffer, weights_only=True, map_location=torch.device(device))
         state_dict[key] = tensor
     return state_dict
 
