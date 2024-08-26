@@ -6,7 +6,7 @@ import logging
 from logging import DEBUG
 from utils.grpc import create_channel, GRPC_MAX_MESSAGE_LENGTH
 from .message import ClientSideMessage, SEND_PARAMETERS
-from proto_py import communicate_pb2, communicate_pb2_grpc
+from utils.proto_py import communicate_pb2, communicate_pb2_grpc
 
 
 def serialize_model_state_dict(state_dict):

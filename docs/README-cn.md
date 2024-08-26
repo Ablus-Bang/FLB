@@ -59,6 +59,8 @@ python main_fl_grpc_test.py --use_server_dp=true
 >   grpc_auth_cer_path: null # 将本地证书路径设置到此处
 > ```
 
+可以通过修改 [proto 文件](https://protobuf.dev/getting-started/pythontutorial/) `utils/protos/communicate.proto` 来生成你自己的消息结构和通信功能。
+
 现在在服务器端`server/strategy/`下只有两种策略，我们将来会添加更多。
 - [x] Federate average（服务器端默认策略）
 > 中央服务器通过平均模型参数来聚合从客户端收到的模型。

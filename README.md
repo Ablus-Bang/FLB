@@ -64,6 +64,7 @@ If you want to use differential privacy in server side, you can set **local_dp**
 >   grpc_auth_cer_path: null # set your local root certificates path to here
 > ```
 
+You can modify [proto file](https://protobuf.dev/getting-started/pythontutorial/) `utils/protos/communicate.proto` to generate your new message structure and communication function.
 
 Now in server side, we have only two strategies under `server/strategy/`, we will add more in the future. 
 - [x] Federate average (default strategy in server side)

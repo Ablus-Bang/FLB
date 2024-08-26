@@ -15,9 +15,12 @@ import pickle
 import logging
 import grpc
 from concurrent import futures
-from proto_py import communicate_pb2_grpc
+from utils.proto_py import communicate_pb2_grpc
 from .grpc_servicer import WeightsTransferServicer
 import json
+import time
+
+_ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 
 class BaseServer:
@@ -29,6 +32,7 @@ class BaseServer:
         self.host = self.config_detail.server.host
         self.port = self.config_detail.server.port
         self.save_path = "./save"
+        self.output = './server_output'
         self.strategy = strategy if strategy is not None else FedAvg()
         self.latest_version = get_latest_folder(self.config_detail.sft.training_arguments.output_dir)
         if self.latest_version is None:
@@ -47,17 +51,24 @@ class BaseServer:
 
     def save_model(self):
         new_version = datetime.today().strftime("%Y%m%d_%H%M%S")
+        save_path = os.path.join(
+                self.output,
+                new_version)
+        os.makedirs(save_path, exist_ok=True)
         torch.save(
             self.model_parameter,
             os.path.join(
-                self.config_detail.sft.training_arguments.output_dir,
-                new_version,
+                save_path,
                 "adapter_model.bin",
             ),
         )
         self.latest_version = new_version
+        logging.info(f'New model weight saved in :{save_path}')
 
-    def update(self):
+    def eval(self):  # TODO add evaluation
+        pass
+
+    def update(self, do_eval=False):
         """Aggregate model and save new model weight, send reward to each client"""
         clients_detail, dataset_length_list, path_list = get_clients_uploads_after(self.save_path, self.latest_version)
         client_list = clients_detail.keys()
@@ -130,7 +141,11 @@ class BaseServer:
         grpc_server.add_insecure_port('[::]:50051')
         grpc_server.start()
         print("Server started, listening on port 50051.")
-        grpc_server.wait_for_termination()
+        try:
+            while True:  # since server.start() will not block, a sleep-loop is added to keep alive
+                time.sleep(_ONE_DAY_IN_SECONDS)
+        except KeyboardInterrupt:
+            grpc_server.stop(0)
 
 
 if __name__ == "__main__":
