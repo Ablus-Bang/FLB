@@ -9,6 +9,7 @@ from .strategy.strategy import Strategy
 from .strategy.fedavg import FedAvg
 from .calculate import get_latest_folder, get_clients_uploads_after, calculate_client_scores
 from utils.chain_record import send_score
+from utils.eval_from_local import eval_model
 from datetime import datetime, timedelta
 import socket
 import pickle
@@ -16,6 +17,7 @@ import logging
 import grpc
 from concurrent import futures
 from utils.proto_py import communicate_pb2_grpc
+from utils.grpc import GRPC_MAX_MESSAGE_LENGTH
 from .grpc_servicer import WeightsTransferServicer
 import json
 import time
@@ -65,8 +67,9 @@ class BaseServer:
         self.latest_version = new_version
         logging.info(f'New model weight saved in :{save_path}')
 
-    def eval(self):  # TODO add evaluation
-        pass
+    def eval(self, lora_config_path='', model_weights_path=''):
+        results = eval_model(self.config_detail.model.model_path, lora_config_path, model_weights_path)
+        print(f'Eval results: {results}')
 
     def update(self, do_eval=False):
         """Aggregate model and save new model weight, send reward to each client"""
@@ -127,8 +130,10 @@ class BaseServer:
                         recv_data["new_model_weight"],
                         client_save_path + "/pytorch_model.bin",
                     )
-                    with open(client_save_path + 'train_dataset_length.json', 'w') as f:
+                    with open(client_save_path + '/train_dataset_length.json', 'w') as f:
                         json.dump({"train_dataset_length": recv_data['train_dataset_length']}, f)
+                    with open(client_save_path + '/adapter_config.json', 'w') as f:
+                        json.dump(recv_data['lora_config'], f)
 
             # Average the weights
             # self.aggregate(client_list, client_weights)
@@ -136,7 +141,11 @@ class BaseServer:
             # self.save_model()
 
     def run_grpc_server(self):
-        grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+        channel_options = [
+            ("grpc.max_send_message_length", GRPC_MAX_MESSAGE_LENGTH),
+            ("grpc.max_receive_message_length", GRPC_MAX_MESSAGE_LENGTH),
+        ]
+        grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10), options=channel_options)
         communicate_pb2_grpc.add_WeightsTransferServicer_to_server(WeightsTransferServicer(self), grpc_server)
         grpc_server.add_insecure_port('[::]:50051')
         grpc_server.start()
