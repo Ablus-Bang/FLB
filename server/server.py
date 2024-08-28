@@ -11,6 +11,7 @@ from .calculate import get_latest_folder, get_clients_uploads_after, calculate_c
 from utils.chain_record import send_score
 from utils.eval_from_local import eval_model
 from datetime import datetime, timedelta
+from threading import Thread
 import socket
 import pickle
 import logging
@@ -36,14 +37,17 @@ class BaseServer:
         self.save_path = "./save"
         self.output = './server_output'
         self.strategy = strategy if strategy is not None else FedAvg()
-        self.latest_version = get_latest_folder(self.config_detail.sft.training_arguments.output_dir)
+        self.latest_version, folder_list = get_latest_folder(self.output)
         if self.latest_version is None:
             output_path = os.path.join(
-                self.config_detail.sft.training_arguments.output_dir,
+                self.output,
                 (datetime.today() - timedelta(days=1)).strftime("%Y%m%d_%H%M%S")
             )
             os.makedirs(output_path, exist_ok=True)
             self.latest_version = output_path
+            self.pre_version = output_path
+        else:
+            self.pre_version = folder_list[-2].split('/')[-1] if len(folder_list) > 1 else self.latest_version
         self.use_chain = self.config_detail.chain_record
 
     def aggregate(self, client_list, dataset_len_list, weight_path_list):
@@ -64,25 +68,55 @@ class BaseServer:
                 "adapter_model.bin",
             ),
         )
+        self.pre_version = self.latest_version
         self.latest_version = new_version
         logging.info(f'New model weight saved in :{save_path}')
 
-    def eval(self, lora_config_path='', model_weights_path=''):
-        results = eval_model(self.config_detail.model.model_path, lora_config_path, model_weights_path)
-        print(f'Eval results: {results}')
+    def calculate_reward(self, clients):
+        if self.latest_version != self.pre_version:
+            latest_result_path = os.path.join(self.output, self.latest_version, 'eval_result.json')
+            pre_result_path = os.path.join(self.output, self.pre_version, 'eval_result.json')
+            with open(latest_result_path, 'r') as f:
+                latest_result = json.load(f)
+            if os.path.isfile(pre_result_path):
+                with open(pre_result_path, 'r') as f:
+                    pre_result = json.load(f)
+            else:
+                pre_result = eval_model(self.config_detail.model.model_path, n_train=1)
+                with open(pre_result_path, 'w') as f:
+                    json.dump(pre_result, f)
+                print(f'Pre version {self.pre_version} eval results: {pre_result}')
+            coefficient = min(0, latest_result['total']['accu'] - pre_result['total']['accu']) / latest_result['total']['accu'] if latest_result['total']['accu'] > 0 else 0
+        else:
+            coefficient = 1
+        score_percentage = calculate_client_scores(clients, coefficient)
+        for user_address, score in score_percentage.items():
+            send_score(user_address, score)
 
-    def update(self, do_eval=False):
+    def eval(self, lora_config_path='', model_weights_path='', clients_data_detail=None):
+        results = eval_model(self.config_detail.model.model_path, lora_config_path, model_weights_path, n_train=1)
+        result_save_path = os.path.join(self.output, self.latest_version)
+        with open(result_save_path + '/eval_result.json', 'w') as f:
+            json.dump(results, f)
+        print(f'Eval results: {results}')
+        # calculate and send reward to each client address
+        if self.use_chain is True:
+            self.calculate_reward(clients_data_detail)
+
+    def update(self, do_eval=True):
         """Aggregate model and save new model weight, send reward to each client"""
         clients_detail, dataset_length_list, path_list = get_clients_uploads_after(self.save_path, self.latest_version)
         client_list = clients_detail.keys()
         if len(client_list) > 0:
             self.aggregate(clients_detail.keys(), dataset_length_list, path_list)
             self.save_model()
-            # send score to each client address
-            if self.use_chain is True:
-                score_percentage = calculate_client_scores(clients_detail)
-                for user_address, score in score_percentage.items():
-                    send_score(user_address, score)
+            if do_eval:
+                weight_saved_path = os.path.join(self.output, self.latest_version, 'adapter_model.bin')
+                eval_thread = Thread(target=self.eval,
+                                     args=['./output',
+                                           weight_saved_path,
+                                           clients_detail])
+                eval_thread.start()
         else:
             logging.info('No new weights from client')
 

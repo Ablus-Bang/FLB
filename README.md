@@ -108,6 +108,45 @@ options:
 ```
 We use [TIGER-Lab/MMLU-Pro](https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro) as our dataset to do evaluation.
 
+Also we use evaluation in our server side `server/server.py`：
+```python
+def eval(self, lora_config_path='', model_weights_path='', clients_data_detail=None):
+    results = eval_model(self.config_detail.model.model_path, lora_config_path, model_weights_path, n_train=1)
+    result_save_path = os.path.join(self.output, self.latest_version)
+    with open(result_save_path + '/eval_result.json', 'w') as f:
+        json.dump(results, f)
+    print(f'Eval results: {results}')
+    # calculate and send reward to each client address
+    if self.use_chain is True:
+        self.calculate_reward(clients_data_detail)
+
+def update(self, do_eval=True):
+    """Aggregate model and save new model weight, send reward to each client"""
+    clients_detail, dataset_length_list, path_list = get_clients_uploads_after(self.save_path, self.latest_version)
+    client_list = clients_detail.keys()
+    if len(client_list) > 0:
+        self.aggregate(clients_detail.keys(), dataset_length_list, path_list)
+        self.save_model()
+        if do_eval:
+            weight_saved_path = os.path.join(self.output, self.latest_version, 'adapter_model.bin')
+            eval_thread = Thread(target=self.eval,
+                                 args=['./output',
+                                       weight_saved_path,
+                                       clients_detail])
+            eval_thread.start()
+    else:
+        logging.info('No new weights from client')
+```
+You can run `run_fast_api.py` and use interface `POST /update_wight` to do evaluation for the model:
+```commandline
+python run_fast_api.py
+
+curl -X 'POST' \
+  'http://127.0.0.1:8080/update_wight' \
+  -H 'accept: application/json' \
+  -d ''
+```
+
 ## Model Download And Model Update
 
 ### Model Download
@@ -326,7 +365,52 @@ Right now we use **number of times to upload weights * size of weight file uploa
 
 #### TODO 
 - [x] Score = number of times to upload weights * size of weight file uploaded each time + total training data volume
-- [ ] base_factor = number of times to upload weights * size of weight file uploaded each time + total training data volume <br> coefficient = (New_Performance−Original_Performance) / Original_Performance <br> Score = base_factor * coefficient
+- [x] base_factor = number of times to upload weights * size of weight file uploaded each time + total training data volume <br> coefficient = (New_Performance−Original_Performance) / Original_Performance <br> Score = base_factor * coefficient
+> The base factor calculation is in `server/calculate.py`:
+>```python
+> def calculate_client_scores(clients_uploads, coefficient, weight_size=2, total_rewards=100):
+>    client_scores = {}
+>
+>    for client_id, uploads in clients_uploads.items():
+>        upload_times = len(uploads)
+>        total_train_dataset_length = sum([upload[1] for upload in uploads])
+>
+>        # Calculate the score based on the formula: upload times * weight_size + total train dataset length
+>        score = upload_times * weight_size + total_train_dataset_length
+>        client_scores[client_id] = score
+>
+>    # Calculate the total score
+>    total_score = sum(client_scores.values())
+>
+>    # Calculate the percentage for each client
+>    client_score_percentages = {client_id: round(score / total_score, 4) * total_rewards * coefficient for client_id, score in
+>                                client_scores.items()}
+>
+>    return client_score_percentages
+> ```
+> The **coefficient** is calculated in `server/server.py`:
+> ```python
+>    def calculate_reward(self, clients):
+>        if self.latest_version != self.pre_version:
+>            latest_result_path = os.path.join(self.output, self.latest_version, 'eval_result.json')
+>            pre_result_path = os.path.join(self.output, self.pre_version, 'eval_result.json')
+>            with open(latest_result_path, 'r') as f:
+>                latest_result = json.load(f)
+>            if os.path.isfile(pre_result_path):
+>                with open(pre_result_path, 'r') as f:
+>                    pre_result = json.load(f)
+>            else:
+>                pre_result = eval_model(self.config_detail.model.model_path, n_train=1)
+>                with open(pre_result_path, 'w') as f:
+>                    json.dump(pre_result, f)
+>                print(f'Pre version {self.pre_version} eval results: {pre_result}')
+>            coefficient = min(0, latest_result['total']['accu'] - pre_result['total']['accu']) / latest_result['total']['accu'] if latest_result['total']['accu'] > 0 else 0
+>        else:
+>            coefficient = 1
+>        score_percentage = calculate_client_scores(clients, coefficient)
+>        for user_address, score in score_percentage.items():
+>            send_score(user_address, score)
+>```
 
 
 > You can set **chain_record** in `config.yaml` to **True** if you want to connect with protocol. The default value of **chain_record** is **False**.

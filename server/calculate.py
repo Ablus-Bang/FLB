@@ -9,10 +9,10 @@ def get_latest_folder(base_path):
     folders = [f for f in glob.glob(os.path.join(base_path, '*')) if os.path.isdir(f)]
     # If there are no folders, return None
     if not folders:
-        return None
+        return None, None
     # Sort the folders by their name, which should be in the YYYYMMDD format
-    latest_folder = max(folders, key=lambda f: datetime.strptime(os.path.basename(f), "%Y%m%d_%H%M%S"))
-    return latest_folder.split('/')[-1]
+    folder_list = sorted(folders, key=lambda f: datetime.strptime(os.path.basename(f), "%Y%m%d_%H%M%S"))
+    return folder_list[-1].split('/')[-1], folder_list
 
 
 def get_clients_uploads_after(base_path, new_version):
@@ -53,7 +53,7 @@ def get_clients_uploads_after(base_path, new_version):
     return clients_dict, dataset_length_list, path_list
 
 
-def calculate_client_scores(clients_uploads, weight_size=2, total_rewards=100):
+def calculate_client_scores(clients_uploads, coefficient, weight_size=2, total_rewards=100):
     client_scores = {}
 
     for client_id, uploads in clients_uploads.items():
@@ -68,7 +68,7 @@ def calculate_client_scores(clients_uploads, weight_size=2, total_rewards=100):
     total_score = sum(client_scores.values())
 
     # Calculate the percentage for each client
-    client_score_percentages = {client_id: round(score / total_score, 4) * total_rewards for client_id, score in
+    client_score_percentages = {client_id: round(score / total_score, 4) * total_rewards * coefficient for client_id, score in
                                 client_scores.items()}
 
     return client_score_percentages
