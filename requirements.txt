@@ -9,3 +9,5 @@ bitsandbytes==0.43.3
 web3==6.20.2
 grpcio==1.65.5
 grpcio-tools==1.65.5
+fastapi==0.112.1
+uvicorn==0.30.6

@@ -75,6 +75,39 @@ Now in server side, we have only two strategies under `server/strategy/`, we wil
 > Different from fixed clipping, adaptive clipping does not pre-set a fixed clipping threshold, but dynamically adjusts the threshold according to the actual distribution of data and the required privacy protection level.
 - [ ] ...
 
+### Evaluation
+You can use `utils/eval_from_local.py` as a script to evaluate the model.
+```
+cd utils
+python eval_from_local.py
+```
+You can customize the script by setting parameters, running script with -h to see each parameter description:
+```commandline
+python eval_from_local.py -h
+
+usage: eval_from_local.py [-h] [--ntrain NTRAIN] [--selected_subjects SELECTED_SUBJECTS] [--save_dir SAVE_DIR] [--lora_config_path LORA_CONFIG_PATH]
+                          [--lora_weights_path LORA_WEIGHTS_PATH] [--global_record_file GLOBAL_RECORD_FILE] [--model MODEL]
+
+options:
+  -h, --help            show this help message and exit
+  --ntrain NTRAIN, -k NTRAIN
+                        few-shot examples amount, default is 3
+  --selected_subjects SELECTED_SUBJECTS, -sub SELECTED_SUBJECTS
+                        selected subjects: biology, business, chemistry, computer science, economics, engineering, health, history, law, math, philosophy, physics, psychology, other,
+                        all. default is 'all'
+  --save_dir SAVE_DIR, -s SAVE_DIR
+                        evaluation results save dir, default is 'eval_results'
+  --lora_config_path LORA_CONFIG_PATH, -lc LORA_CONFIG_PATH
+                        lora config folder path
+  --lora_weights_path LORA_WEIGHTS_PATH, -lw LORA_WEIGHTS_PATH
+                        lora weights bin file path
+  --global_record_file GLOBAL_RECORD_FILE, -grf GLOBAL_RECORD_FILE
+                        global log record file, default is 'eval_record_collection.csv'
+  --model MODEL, -m MODEL
+                        local model path
+```
+We use [TIGER-Lab/MMLU-Pro](https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro) as our dataset to do evaluation.
+
 ## Model Download And Model Update
 
 ### Model Download
@@ -234,6 +267,8 @@ streamlit run examples/xxx/xxx-web-demo.py --server.address 127.0.0.1 --server.p
 ```
 
 ## Blockchain Support
+
+In order to ensure fairness and security, we have designed a decentralized on-chain role-based access control architecture. Different roles have different permissions and functions to ensure that user data is secure and cannot be tampered with on the chain. For relevant details, please visit [FLBRoleDesign](./chain/FLBRoleDesign.md) document.
 
 **Privacy**: We develop smart contract on chain to support data record and reward distribution in blockchain.
 

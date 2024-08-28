@@ -70,6 +70,39 @@ python main_fl_grpc_test.py --use_server_dp=true
 > 与固定裁剪不同，自适应裁剪并不预先设定固定的裁剪阈值，而是根据数据的实际分布和所需的隐私保护等级，动态调整阈值。
 - [ ] ...
 
+### 评估
+您可以使用 `utils/eval_from_local.py` 作为脚本来评估模型。
+```
+cd utils
+python eval_from_local.py
+```
+可以通过设置参数来自定义脚本，使用 -h 运行脚本以查看每个参数描述：
+```commandline
+python eval_from_local.py -h
+
+usage: eval_from_local.py [-h] [--ntrain NTRAIN] [--selected_subjects SELECTED_SUBJECTS] [--save_dir SAVE_DIR] [--lora_config_path LORA_CONFIG_PATH]
+                          [--lora_weights_path LORA_WEIGHTS_PATH] [--global_record_file GLOBAL_RECORD_FILE] [--model MODEL]
+
+options:
+  -h, --help            show this help message and exit
+  --ntrain NTRAIN, -k NTRAIN
+                        few-shot examples amount, default is 3
+  --selected_subjects SELECTED_SUBJECTS, -sub SELECTED_SUBJECTS
+                        selected subjects: biology, business, chemistry, computer science, economics, engineering, health, history, law, math, philosophy, physics, psychology, other,
+                        all. default is 'all'
+  --save_dir SAVE_DIR, -s SAVE_DIR
+                        evaluation results save dir, default is 'eval_results'
+  --lora_config_path LORA_CONFIG_PATH, -lc LORA_CONFIG_PATH
+                        lora config folder path
+  --lora_weights_path LORA_WEIGHTS_PATH, -lw LORA_WEIGHTS_PATH
+                        lora weights bin file path
+  --global_record_file GLOBAL_RECORD_FILE, -grf GLOBAL_RECORD_FILE
+                        global log record file, default is 'eval_record_collection.csv'
+  --model MODEL, -m MODEL
+                        local model path
+```
+我们使用 [TIGER-Lab/MMLU-Pro](https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro) 作为我们的数据集进行评估。
+
 ## 模型下载及模型更新
 
 ### 模型下载
@@ -224,6 +257,8 @@ streamlit run examples/xxx/xxx-web-demo.py --server.address 127.0.0.1 --server.p
 ![img](./webdemo.png)
 
 ## 支持区块链
+
+为了满足公平性和安全性，我们设计了去中心化的链上分角色访问控制架构，不同的角色具有不同的权限和作用，以此来保证用户数据在链上的安全、不可篡改，相关的细节可以访问[FLBRoleDesign](./FLBRoleDesign-cn.md)文档。
 
 **隐私**：我们在链上开发智能合约，以支持区块链中的数据记录和奖励分配。
 

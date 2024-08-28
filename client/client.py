@@ -19,6 +19,7 @@ import torch
 import socket
 import pickle
 import numpy as np
+import json
 
 
 def cosine_lr(
@@ -53,8 +54,9 @@ class BaseClient:
 
     def prepare_dataset(self):
         trainset_full = load_dataset(self.config_detail.datasetname, split="train")
-        train_dataset = trainset_full["train"]
-        test_dataset = trainset_full["test"]
+        train_test = trainset_full.train_test_split(test_size=0.1, seed=1234)
+        train_dataset = train_test["train"]
+        test_dataset = train_test["test"]
         column_names = list(train_dataset.features)
         self.train_dataset = train_dataset.map(
             apply_chat_template,
@@ -160,6 +162,10 @@ class BaseClient:
                 len(self.train_dataset),
                 self.model.state_dict(),
             )
+            lora_config_path = self.config_detail.sft.training_arguments.output_dir
+            with open(lora_config_path + '/adapter_config.json', 'r') as f:
+                lora_config = json.load(f)
+
             if self.ldp is True:
                 # Clipping
                 new_model_weight, _ = clip_l2_norm(new_model_weight,
@@ -181,6 +187,7 @@ class BaseClient:
                     "client_id": self.client_id,
                     "train_dataset_length": train_dataset_len,
                     "new_model_weight": new_model_weight,
+                    "lora_config": lora_config
                 }
             )
             s.sendall(data)
@@ -206,6 +213,9 @@ class BaseClient:
             len(self.train_dataset),
             self.model.state_dict(),
         )
+        lora_config_path = self.config_detail.sft.training_arguments.output_dir
+        with open(lora_config_path + '/adapter_config.json', 'r') as f:
+            lora_config = json.load(f)
         if self.ldp is True:
             # Clipping
             new_model_weight, _ = clip_l2_norm(new_model_weight,
@@ -224,6 +234,7 @@ class BaseClient:
             'client_id': self.client_id,
             'train_dataset_length': train_dataset_len,
             'new_model_weight': new_model_weight,
+            'lora_config': lora_config
         }
         msg_data = ClientSideMessage(msg_content, ClientSideMetadata(SEND_PARAMETERS))
 
