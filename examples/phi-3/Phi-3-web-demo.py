@@ -20,7 +20,6 @@ def get_model():
     return tokenizer, model
 
 def bulid_input(prompt, history=[]):
-    system_format='<s><|system|>\n{content}<|end|>\n'
     user_format='<|user|>\n{content}<|end|>\n'
     assistant_format='<|assistant|>\n{content}<|end|>\n'
     history.append({'role':'user','content':prompt})

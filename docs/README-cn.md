@@ -32,24 +32,24 @@ dataset_name： # Hugging face中的数据集或本地数据集路径
 运行以下命令来启动本地联邦学习微调测试：
 
 ```
-python main_simple_fl.py
+python main_fl_socket.py
 ```
 客户端默认使用[本地差分隐私](https://en.wikipedia.org/wiki/Local_differential_privacy)，可以在`config.yaml`中将client模块中的**local_dp**设置为**False**来关闭本地差分隐私。
 
 如果你想在服务器端使用差分隐私，可以在`config.yaml`中将client模块中的**local_dp**设置为**False**并运行：
 ```
-python main_simple_fl.py --use_server_dp=true
+python main_fl_socket.py --use_server_dp=true
 ```
 
 我们还支持使用 [gRPC](https://grpc.io/) 进行客户端和服务器通信，你可以运行以下脚本：
 
 ```
-python main_fl_grpc_test.py
+python main_fl_grpc.py
 ```
 
 如果你想在服务器端使用差分隐私，可以在 `config.yaml` 中将client模块中的 **local_dp** 设置为 **False** 并运行：
 ```
-python main_fl_grpc_test.py --use_server_dp=true
+python main_fl_grpc.py --use_server_dp=true
 ```
 
 > 我们支持创建不安全和安全的 gRPC 通道，你可以将本地 [根证书](https://en.wikipedia.org/wiki/Root_certificate) 设置到 config.yaml 中以使用安全通道进行通信：

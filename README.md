@@ -36,25 +36,25 @@ dataset_name： # dataset in Hugging face or local dataset path
 To start the framework test on a machine and simulate the federated learning fine-tuning process, run the following command:
 
 ```
-python main_simple_fl.py
+python main_fl_socket.py
 ```
 
 The client side uses [local differential privacy](https://en.wikipedia.org/wiki/Local_differential_privacy) by default, you can close it by setting **local_dp** in client block to **False** in `config.yaml`
 
 If you want to use differential privacy in server side, you can set **local_dp** in client block to **False** in `config.yaml` and run:
  ```
- python main_simple_fl.py --use_server_dp=true
+ python main_fl_socket.py --use_server_dp=true
  ```
 
 We also support [gRPC](https://grpc.io/) for client and server communication, you can run this script to simulate:
 
 ```
-python main_fl_grpc_test.py
+python main_fl_grpc.py
 ```
 
 If you want to use differential privacy in server side, you can set **local_dp** in client block to **False** in `config.yaml` and run:
  ```
- python main_fl_grpc_test.py --use_server_dp=true
+ python main_fl_grpc.py --use_server_dp=true
  ```
 
 > We support create an insecure and secure gRPC channel, you can set your local [root certificates](https://en.wikipedia.org/wiki/Root_certificate) to config.yaml to use secure channel:
