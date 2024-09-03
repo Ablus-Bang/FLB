@@ -42,11 +42,14 @@ client:
   local_dp: False
   grpc_insecure: True # you can turn off this and set grpc_auth_cer_path to use secure gRPC channel
   grpc_auth_cer_path: null # set your local root certificates path to here
+  weight_file_download_path: "./client/weights_update" # the path to save weight file from server side
+  auto_pull: True # set it to False if you want to copy weight file from server side manually. If it's False, make sure you already put the weight file to the right place before you call update function in client side.
 server:
   host: 127.0.0.1
   port: 8088
   clip_threshold: 2 # dp fixed clipping threshold in server side
   noise_multiplier: 1 # A larger noise_multiplier means more noise, thus stronger privacy protection, but may also lead to a decrease in model performance. A smaller noise_multiplier may provide better model performance but weaker privacy protection.
+  restful_url: "http://127.0.0.1:8080"
 dataset_name: "medalpaca/medical_meadow_medical_flashcards"
 num_clients: 2 # client number in federated learning
 chain_record: False # whether to connect to chain or not

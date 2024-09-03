@@ -80,7 +80,6 @@ def grpc_connection(server_address,
                 )
                 for k, v in detail['lora_config'].items()
             ]
-            print(lora_config_message)
             msg_proto = communicate_pb2.ClientGrpcMessage(
                 send_parameters=communicate_pb2.ClientGrpcMessage.SendParameters(
                     client_id=detail['client_id'],

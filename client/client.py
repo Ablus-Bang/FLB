@@ -5,7 +5,7 @@ import sys
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from transformers import TrainingArguments
 from trl import SFTTrainer
-from peft import set_peft_model_state_dict, get_peft_model_state_dict
+from peft import set_peft_model_state_dict, get_peft_model_state_dict, PeftModel, LoraConfig
 from collections import OrderedDict
 from datasets import load_dataset
 from omegaconf import OmegaConf
@@ -13,6 +13,7 @@ from utils.process_data import apply_chat_template
 from utils.models import get_model_and_tokenizer
 from utils.differential_privacy import clip_l2_norm, local_add_gaussian_noise
 from utils.chain_record import send_weight
+from utils.calculate import get_latest_folder
 import math
 import copy
 import torch
@@ -20,6 +21,7 @@ import socket
 import pickle
 import numpy as np
 import json
+import requests
 
 
 def cosine_lr(
@@ -51,6 +53,8 @@ class BaseClient:
         self.port = self.config_detail.client.port
         self.use_chain = self.config_detail.chain_record
         self.ldp = self.config_detail.client.local_dp
+        os.makedirs(self.config_detail.client.weight_file_download_path, exist_ok=True)
+        self.model_weights_download_path = self.config_detail.client.weight_file_download_path
 
     def prepare_dataset(self):
         trainset_full = load_dataset(self.config_detail.datasetname, split="train")
@@ -126,6 +130,39 @@ class BaseClient:
     def train(self):
         results = self.trainer.train()
         return results.training_loss
+
+    def update(self):
+        if self.config_detail.client.auto_pull is True:
+            try:
+                url = f'{self.config_detail.server.restful_url}/latest_weight'
+                response = requests.get(url, stream=True)
+                response.raise_for_status()
+                content_disposition = response.headers.get('Content-Disposition', '')
+                filename = content_disposition.split('filename=')[-1]
+                model_version = filename.split('-')[0]
+                save_path = os.path.join(self.model_weights_download_path, model_version)
+                os.makedirs(save_path, exist_ok=True)
+                with open(save_path + '/adapter_model.bin', 'wb') as file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        file.write(chunk)
+                print(f"Saved in {save_path}")
+            except requests.RequestException as e:
+                print(f"Download weight file failed, please download manually. Error: {e}")
+                raise requests.RequestException(f"Download weight file failed, please download manually. Error: {e}")
+
+        lora_config_path = os.path.join(self.config_detail.sft.training_arguments.output_dir,
+                                        'adapter_config.json')
+        _, lora_weights_path_list = get_latest_folder(self.model_weights_download_path)
+        if os.path.isfile(lora_config_path) and lora_weights_path_list:
+            lora_weights_path = os.path.join(lora_weights_path_list[0],
+                                             'adapter_model.bin')
+            config = LoraConfig.from_pretrained(self.config_detail.sft.training_arguments.output_dir)
+            lora_weights = torch.load(lora_weights_path)
+            model = PeftModel(self.model, config)
+            set_peft_model_state_dict(model, lora_weights)
+            self.model = model
+        else:
+            print("No Lora config and weights found. Skipping update.")
 
     def save(self):
         new_adapter_weight = self.model.state_dict()

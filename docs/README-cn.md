@@ -132,7 +132,9 @@ def update(self, do_eval=True):
     else:
         logging.info('No new weights from client')
 ```
-你可以运行 `run_fast_api.py` 并请求接口 `POST /update_wight` 来给当前模型进行聚合后的评估:
+
+####  测试本地服务端模型评估并保存最新权重文件 <a id="server_side_weight_save"></a>
+你可以运行 `run_fast_api.py` 并请求接口 `POST /update_wight` 来给当前模型进行聚合后的评估。它会自动聚合并保存一个新的模型权重文件到你的本地文件夹“server_output” <a id="server_side_weight_save"></a>:
 ```commandline
 python run_fast_api.py
 
@@ -294,6 +296,75 @@ streamlit run examples/xxx/xxx-web-demo.py --server.address 127.0.0.1 --server.p
 界面如下
 
 ![img](./webdemo.png)
+
+你还可以尝试使用简单的脚本来获取服务端的最新权重文件，模拟测试本地模型的更新。
+只需要运行 restful api 脚本，然后运行客户端脚本。
+
+打开一个终端作为服务器端并运行：
+```commandline
+# 运行 api 脚本，以便客户端可以从服务器端获取模型权重文件
+python run_fast_api.py
+```
+
+打开另一个终端作为客户端并运行：
+```commandline
+# 运行客户端脚本并将 local_update 设置为 True 以模拟本地模型的更新
+python run_grpc_client.py --local_update true
+```
+
+> 确保服务器端已经聚合并[保存](#server_side_weight_save)一个新的权重文件。
+>
+> 你还可以手动将权重文件从服务器端复制到客户端。**你需要从服务器端同时复制版本文件夹和 bin 文件。**例如：
+>
+> ```
+> - client
+>   |_ weights_update
+>       |_ 20240829_162336
+>           |_ adapter_model.bin
+> ```
+>
+> `config.yaml` 中的 **weight_file_download_path** 是保存服务器端模型权重的路径，如果你手动从服务器复制文件，请确保将权重文件放置到该路径下。
+> ```
+> 客户端：
+> weight_file_download_path：“。/client/weights_update”
+> auto_pull：True # 如果您想手动从服务器端复制权重文件，请将其设置为 False。如果为 False，请确保在客户端调用更新函数之前已将权重文件放在正确的位置。
+>```
+
+你可以到`client/client.py`查看更多细节：
+```python
+def update(self):
+    if self.config_detail.client.auto_pull is True:
+        try:
+            url = f'{self.config_detail.server.restful_url}/latest_weight'
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+            content_disposition = response.headers.get('Content-Disposition', '')
+            filename = content_disposition.split('filename=')[-1]
+            model_version = filename.split('-')[0]
+            save_path = os.path.join(self.model_weights_download_path, model_version)
+            os.makedirs(save_path, exist_ok=True)
+            with open(save_path + '/adapter_model.bin', 'wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            print(f"Saved in {save_path}")
+        except requests.RequestException as e:
+            print(f"Download weight file failed, please download manually. Error: {e}")
+            raise requests.RequestException(f"Download weight file failed, please download manually. Error: {e}")
+
+    lora_config_path = os.path.join(self.config_detail.sft.training_arguments.output_dir,
+                                    'adapter_config.json')
+    _, lora_weights_path_list = get_latest_folder(self.model_weights_download_path)
+    if os.path.isfile(lora_config_path) and lora_weights_path_list:
+        lora_weights_path = os.path.join(lora_weights_path_list[0],
+                                         'adapter_model.bin')
+        config = LoraConfig.from_pretrained(self.config_detail.sft.training_arguments.output_dir)
+        lora_weights = torch.load(lora_weights_path)
+        model = PeftModel(self.model, config)
+        set_peft_model_state_dict(model, lora_weights)
+        self.model = model
+    else:
+        print("No Lora config and weights found. Skipping update.")
+```
 
 ## 支持区块链
 

@@ -30,7 +30,7 @@ def runserver():
     server = BaseServer(CFG_PATH)
     server.start()
 
-#
+
 def run_simulation(use_server_dp=False):
     server_side = runserver if not use_server_dp else runserver_with_dp
     server_thread = Thread(target=server_side)

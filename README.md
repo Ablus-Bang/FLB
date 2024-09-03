@@ -137,7 +137,9 @@ def update(self, do_eval=True):
     else:
         logging.info('No new weights from client')
 ```
-You can run `run_fast_api.py` and use interface `POST /update_wight` to do evaluation for the model:
+
+####  Test local server evaluation and save new model weight file <a id="server_side_weight_save"></a>
+You can run `run_fast_api.py` and use interface `POST /update_wight` to do evaluation for the model. It will automatically aggregate and save a new model weight file to your local folder `server_output`: 
 ```commandline
 python run_fast_api.py
 
@@ -303,6 +305,75 @@ For the web demo built with streamlit, you can run the program directly using th
 
 ```
 streamlit run examples/xxx/xxx-web-demo.py --server.address 127.0.0.1 --server.port 8080
+```
+
+You can also try to use simple script to test local model update with latest weight file from server side.
+You only need to run the restful api script and then run the client script.
+
+Open one terminal as server side and run:
+```commandline
+# run api script so that client side can fetch model weight file from server side
+python run_fast_api.py
+```
+
+Open another terminal as client side and run:
+```commandline
+# run client script and set local_update to True to simulate the update of the local model
+python run_grpc_client.py --local_update true
+```
+
+> Make sure you server side already aggregate and [save](#server_side_weight_save) a new weight file.
+> 
+> You can also save new model weights manually by coping the weight file from server side to your client side. **You need to copy both version folder and bin file from the server side.** For example:
+> 
+> ```
+> - client
+>   |_ weights_update
+>       |_ 20240829_162336
+>           |_ adapter_model.bin
+> ```
+> 
+> The **weight_file_download_path** in `config.yaml` is the path to save model weight from server side, make sure you put the weight file to this folder if you manually copy file from the server.
+> ```
+> client:
+>  weight_file_download_path: "./client/weights_update" 
+>  auto_pull: True # set it to False if you want to copy weight file from server side manually. If it's False, make sure you already put the weight file to the right place before you call update function in client side.
+>```
+
+You can check the details in `client/client.py`:
+```python
+def update(self):
+    if self.config_detail.client.auto_pull is True:
+        try:
+            url = f'{self.config_detail.server.restful_url}/latest_weight'
+            response = requests.get(url, stream=True)
+            response.raise_for_status()
+            content_disposition = response.headers.get('Content-Disposition', '')
+            filename = content_disposition.split('filename=')[-1]
+            model_version = filename.split('-')[0]
+            save_path = os.path.join(self.model_weights_download_path, model_version)
+            os.makedirs(save_path, exist_ok=True)
+            with open(save_path + '/adapter_model.bin', 'wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            print(f"Saved in {save_path}")
+        except requests.RequestException as e:
+            print(f"Download weight file failed, please download manually. Error: {e}")
+            raise requests.RequestException(f"Download weight file failed, please download manually. Error: {e}")
+
+    lora_config_path = os.path.join(self.config_detail.sft.training_arguments.output_dir,
+                                    'adapter_config.json')
+    _, lora_weights_path_list = get_latest_folder(self.model_weights_download_path)
+    if os.path.isfile(lora_config_path) and lora_weights_path_list:
+        lora_weights_path = os.path.join(lora_weights_path_list[0],
+                                         'adapter_model.bin')
+        config = LoraConfig.from_pretrained(self.config_detail.sft.training_arguments.output_dir)
+        lora_weights = torch.load(lora_weights_path)
+        model = PeftModel(self.model, config)
+        set_peft_model_state_dict(model, lora_weights)
+        self.model = model
+    else:
+        print("No Lora config and weights found. Skipping update.")
 ```
 
 ## Protocol Support

@@ -7,7 +7,7 @@ import sys
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from .strategy.strategy import Strategy
 from .strategy.fedavg import FedAvg
-from .calculate import get_latest_folder, get_clients_uploads_after, calculate_client_scores
+from utils.calculate import get_latest_folder, get_clients_uploads_after, calculate_client_scores
 from utils.chain_record import send_score
 from utils.eval_from_local import eval_model
 from datetime import datetime, timedelta
