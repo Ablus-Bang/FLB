@@ -50,6 +50,8 @@ server:
   clip_threshold: 2 # dp fixed clipping threshold in server side
   noise_multiplier: 1 # A larger noise_multiplier means more noise, thus stronger privacy protection, but may also lead to a decrease in model performance. A smaller noise_multiplier may provide better model performance but weaker privacy protection.
   restful_url: "http://127.0.0.1:8080"
+  clients_file_save_path: "./save" # the path of the weight file sent by the clients
+  output_path: "./server_output" # the save path of the model file after weight aggregation and evaluation result file
 dataset_name: "medalpaca/medical_meadow_medical_flashcards"
 num_clients: 2 # client number in federated learning
 chain_record: False # whether to connect to chain or not

@@ -22,6 +22,7 @@ import pickle
 import numpy as np
 import json
 import requests
+from datetime import datetime
 
 
 def cosine_lr(
@@ -231,8 +232,14 @@ class BaseClient:
 
         print("Training complete, weights sent to server")
         if self.use_chain is True:
-            # record weight to chain
-            send_weight(new_model_weight)
+            # record weight to chain, now just record file path
+            current_date = datetime.today().strftime("%Y%m%d_%H%M%S")
+            weight_path = os.path.join(
+                self.config_detail.server.clients_file_save_path,
+                "local_output_{}".format(str(self.client_id)),
+                current_date,
+            )
+            send_weight(weight_path)
 
     def run_grpc_client(self):
         from .grpc_clients.grpc_client import grpc_connection
@@ -280,8 +287,14 @@ class BaseClient:
             print(f"Server response: {response.code}, {response.message}")
 
         if self.use_chain is True:
-            # record weight to chain
-            send_weight(new_model_weight)
+            # record weight to chain, now just record file path
+            current_date = datetime.today().strftime("%Y%m%d_%H%M%S")
+            weight_path = os.path.join(
+                self.config_detail.server.clients_file_save_path,
+                "local_output_{}".format(str(self.client_id)),
+                current_date,
+            )
+            send_weight(weight_path)
 
 
 if __name__ == "__main__":

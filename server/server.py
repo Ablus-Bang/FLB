@@ -34,8 +34,8 @@ class BaseServer:
         self.num_clients = self.config_detail.num_clients
         self.host = self.config_detail.server.host
         self.port = self.config_detail.server.port
-        self.save_path = "./save"
-        self.output = './server_output'
+        self.save_path = self.config_detail.server.clients_file_save_path
+        self.output = self.config_detail.server.output_path
         self.strategy = strategy if strategy is not None else FedAvg()
         self.latest_version, folder_list = get_latest_folder(self.output)
         if self.latest_version is None:
