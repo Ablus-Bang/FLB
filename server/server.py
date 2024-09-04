@@ -19,6 +19,7 @@ import grpc
 from concurrent import futures
 from utils.proto_py import communicate_pb2_grpc
 from utils.grpc import GRPC_MAX_MESSAGE_LENGTH
+from utils.models import get_model_and_tokenizer
 from .grpc_servicer import WeightsTransferServicer
 import json
 import time
@@ -39,13 +40,23 @@ class BaseServer:
         self.strategy = strategy if strategy is not None else FedAvg()
         self.latest_version, folder_list = get_latest_folder(self.output)
         if self.latest_version is None:
+            latest_time = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d_%H%M%S")
             output_path = os.path.join(
                 self.output,
-                (datetime.today() - timedelta(days=1)).strftime("%Y%m%d_%H%M%S")
+                latest_time
             )
             os.makedirs(output_path, exist_ok=True)
-            self.latest_version = output_path
-            self.pre_version = output_path
+            self.latest_version = latest_time
+            self.pre_version = latest_time
+            model, _ = get_model_and_tokenizer(self.cfg_path)
+            torch.save(
+                model.state_dict(),
+                os.path.join(
+                    self.output,
+                    self.latest_version,
+                    "adapter_model.bin",
+                ),
+            )
         else:
             self.pre_version = folder_list[-2].split('/')[-1] if len(folder_list) > 1 else self.latest_version
         self.use_chain = self.config_detail.chain_record
@@ -108,6 +119,11 @@ class BaseServer:
         clients_detail, dataset_length_list, path_list = get_clients_uploads_after(self.save_path, self.latest_version)
         client_list = clients_detail.keys()
         if len(client_list) > 0:
+            current_parameter = torch.load(
+                os.path.join(self.output, self.latest_version, 'adapter_model.bin'),
+                map_location=torch.device(self.config_detail.model.device_map)
+            )
+            self.strategy.set_model_parameters(current_parameter)
             self.aggregate(clients_detail.keys(), dataset_length_list, path_list)
             self.save_model()
             if do_eval:
