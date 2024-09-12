@@ -11,4 +11,5 @@ grpcio==1.65.5
 grpcio-tools==1.65.5
 fastapi==0.112.1
 uvicorn==0.30.6
-mlx-lm
+mlx==0.17.2
+mlx-lm==0.18.1
