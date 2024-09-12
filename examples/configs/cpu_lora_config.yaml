@@ -1,5 +1,5 @@
 model:
-  model_path: "microsoft/Phi-3-mini-4k-instruct"
+  model_path: "HuggingFaceTB/SmolLM-360M"
   quantization: null # 4 or 8 or null. Set 4 or 8 to use Qlora. Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision.
   device_map: 'cpu' # support cuda, cpu, mps and mlx for os system
   torch_dtype: 'float16'
@@ -29,7 +29,7 @@ sft:
     log_level: "info"
     logging_strategy: "steps"
     num_train_epochs: 1
-    max_steps: 10
+    max_steps: -1
     save_steps: 100
     save_total_limit: 1
     gradient_checkpointing: True
@@ -72,6 +72,6 @@ server:
   restful_url: "http://127.0.0.1:8080"
   clients_file_save_path: "./save" # the path of the weight file sent by the clients
   output_path: "./server_output" # the save path of the model file after weight aggregation and evaluation result file
-dataset_name: "./examples/datasets/mlx_datasets" 
+dataset_name: "./examples/datasets/datasets"  # Specify a custom dataset or huggingface dataset, for example: medalpaca/medical_meadow_medical_flashcards
 num_clients: 1 # client number in federated learning
 chain_record: False # whether to connect to chain or not
