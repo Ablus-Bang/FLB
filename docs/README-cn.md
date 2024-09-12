@@ -25,8 +25,16 @@ device_map: "cuda" #支持cuda、cpu、mps和mlx(专为支持OS系统)
 
 dataset_name： # Hugging face中的数据集或本地数据集路径
 ```
+
+### CPU
+你可以使用CPU进行模型训练，但是我们建议使用GPU来减短训练时长。
+
+### GPU 支持
+如果你要使用GPU进行训练，推荐使用NVIDIA RTX 30系列及以上显卡，显存至少8GB。内存至少16GB RAM。
+
 ### 针对 OS 训练配置设置
-> 对于 OS 训练，必须将 **device_map** 设置为 **mlx**。<br>
+> 对于 OS 训练，仅支持 M2 及其以上芯片的 Macbook。<br>
+> 必须将config.yaml中的 **device_map** 设置为 **mlx**。<br>
 > 需要使用特定的数据集格式进行 mlx 训练，请参考 **examples/datasets/mlx_datasets**。 <br>
 > 只能使用 [**mlx-community**](https://huggingface.co/mlx-community) 的模型。或者也可以使用 **utils/mlx_utils.py** 中的函数 **convert** 将模型转换为特定的模型结构。
 >
