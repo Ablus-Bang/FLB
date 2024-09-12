@@ -28,13 +28,14 @@ def get_model_and_tokenizer(cfg_path):
 
     if config_detail.model.device_map in ["cuda", "cpu", "mps"]:
         device_map = config_detail.model.device_map
-        if device_map == 'mps':
-            quantization_config = None
     else:
         if torch.cuda.is_available():
             device_map = "cuda"
         else:
             device_map = "cpu"
+
+    if device_map in ["cpu", "mps"]:
+        quantization_config = None
 
     model = AutoModelForCausalLM.from_pretrained(
         config_detail.model.model_path,

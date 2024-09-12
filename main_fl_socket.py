@@ -1,12 +1,12 @@
 from omegaconf import OmegaConf
 from threading import Thread
 import sys
+import time
 import argparse
 from os import path
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from client.client import BaseClient
 from server.server import BaseServer
 from server.strategy.fedavg import FedAvg
 from server.strategy.dp_fixed_clip import DpServerFixedClip
@@ -36,8 +36,16 @@ def run_simulation(use_server_dp=False):
     server_thread = Thread(target=server_side)
     server_thread.start()
 
+    time.sleep(3)
+
     for i in range(config_detail.num_clients):
-        client = BaseClient(i, CFG_PATH)
+        if config_detail.model.device_map == "mlx":
+            from client.mlxclient import MLXClient
+            client = MLXClient(i, CFG_PATH)
+        else:
+            from client.client import Client    
+
+            client = Client(i, CFG_PATH)
         client.start()
         del client
 
@@ -50,9 +58,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use_server_dp", required=False, type=bool, default=False)
     args = parser.parse_args()
+    run_simulation(args.use_server_dp)
 
-    if args.use_server_dp:
-        run_simulation(True)
-    else:
-        run_simulation()
-
+   

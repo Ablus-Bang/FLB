@@ -3,14 +3,13 @@ from os import path
 import sys
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+from .baseclient import BaseClient
 from transformers import TrainingArguments
 from trl import SFTTrainer
 from peft import set_peft_model_state_dict, get_peft_model_state_dict, PeftModel, LoraConfig
 from collections import OrderedDict
-from datasets import load_dataset
-from omegaconf import OmegaConf
-from utils.process_data import apply_chat_template
-from utils.models import get_model_and_tokenizer
+from utils.process_data import process_dataset_for_unified_format, get_dataset
+from utils.model import get_model_and_tokenizer
 from utils.differential_privacy import clip_l2_norm, local_add_gaussian_noise
 from utils.chain_record import send_weight
 from utils.calculate import get_latest_folder
@@ -25,6 +24,7 @@ import requests
 from datetime import datetime
 
 
+
 def cosine_lr(
     current_round: int,
     total_round: int,
@@ -37,17 +37,18 @@ def cosine_lr(
         1 + math.cos(cos_inner)
     )
 
-
-class BaseClient:
+class Client(BaseClient):
     def __init__(self, client_id, cfg_path):
-        self.cfg_path = cfg_path
-        self.config_detail = OmegaConf.load(cfg_path)
+        super().__init__(client_id, cfg_path)      
         self.model = None
         self.tokenizer = None
-        self.client_id = client_id
         self.training_args = TrainingArguments(
-            **self.config_detail.sft.training_arguments
+            **self.config_detail.sft.training_arguments,
+            use_cpu=True if self.config_detail.model.device_map == "cpu" else False,
+            use_mps_device= True if self.config_detail.model.device_map == "mps" else False,
         )
+       
+
         self.train_dataset = None
         self.test_dataset = None
         self.host = self.config_detail.client.host
@@ -58,35 +59,20 @@ class BaseClient:
         self.model_weights_download_path = self.config_detail.client.weight_file_download_path
 
     def prepare_dataset(self):
-        trainset_full = load_dataset(self.config_detail.datasetname, split="train")
-        train_test = trainset_full.train_test_split(test_size=0.1, seed=1234)
+        train_full = get_dataset(self.config_detail.dataset_name)
+        train_test = train_full.train_test_split(test_size=0.1, seed=1122)
         train_dataset = train_test["train"]
         test_dataset = train_test["test"]
-        column_names = list(train_dataset.features)
-        self.train_dataset = train_dataset.map(
-            apply_chat_template,
-            fn_kwargs={"tokenizer": self.tokenizer},
-            num_proc=10,
-            remove_columns=column_names,
-            desc="Applying chat template to train_sft",
-        )
-
-        self.test_dataset = test_dataset.map(
-            apply_chat_template,
-            fn_kwargs={"tokenizer": self.tokenizer},
-            num_proc=10,
-            remove_columns=column_names,
-            desc="Applying chat template to test_sft",
-        )
-
-    def local_dataset(self):  # TODO Only for local test, will remove later
-        from utils.process_data import build_dataset
-
-        train_dataset_split, processed_test_dataset = build_dataset(
-            self.tokenizer, self.config_detail.dataset_name, self.config_detail.num_clients
-        )
-        self.train_dataset = train_dataset_split[0]
-        self.test_dataset = processed_test_dataset
+        self.train_dataset = process_dataset_for_unified_format(self.config_detail.dataset_name,
+                                                                train_dataset,
+                                                                self.tokenizer,
+                                                                seed=1122
+                                                                )
+        self.test_dataset = process_dataset_for_unified_format(self.config_detail.dataset_name,
+                                                               test_dataset,
+                                                               self.tokenizer,
+                                                               seed=1122
+                                                               )
 
     def init_local_model(self):
         self.model, self.tokenizer = get_model_and_tokenizer(self.cfg_path)
@@ -188,8 +174,7 @@ class BaseClient:
             s.connect((self.host, self.port))
             print(f"Connected to {self.host}:{self.port}")
 
-            # self.prepare_dataset()
-            self.local_dataset()
+            self.prepare_dataset()
             self.initiate_local_training()
             self.local_trainer_set()
             self.train()
@@ -248,7 +233,7 @@ class BaseClient:
         insecure = self.config_detail.client.grpc_insecure
         auth_cer = self.config_detail.client.grpc_auth_cer_path if self.config_detail.client.grpc_auth_cer_path is not None else None
         self.init_local_model()
-        self.local_dataset()
+        self.prepare_dataset()
         self.initiate_local_training()
         self.local_trainer_set()
         self.train()
@@ -295,8 +280,8 @@ class BaseClient:
                 current_date,
             )
             send_weight(weight_path)
-
+  
 
 if __name__ == "__main__":
-    client = BaseClient(client_id="1233", cfg_path="../config.yaml")
+    client = Client(client_id="1233", cfg_path="../config.yaml")
     client.run_grpc_client()

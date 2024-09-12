@@ -21,10 +21,40 @@ pip install -r requirements.txt
 model:
 model_path: # Hugging face中的模型路径或本地模型路径
 quantization: 8 #如果你想使用cpu，请将其设置为null
-device_map: "cuda" #支持cuda、cpu和mps
+device_map: "cuda" #支持cuda、cpu、mps和mlx(专为支持OS系统)
 
 dataset_name： # Hugging face中的数据集或本地数据集路径
 ```
+### 针对 OS 训练配置设置
+> 对于 OS 训练，必须将 **device_map** 设置为 **mlx**。<br>
+> 需要使用特定的数据集格式进行 mlx 训练，请参考 **examples/datasets/mlx_datasets**。 <br>
+> 只能使用 [**mlx-community**](https://huggingface.co/mlx-community) 的模型。或者也可以使用 **utils/mlx_utils.py** 中的函数 **convert** 将模型转换为特定的模型结构。
+>
+> 其他更多专门的训练参数在 **config.yaml** **mlx** 部分 <br>
+> ```
+> mlx:
+>   lora_layers: 16 # 使用 mlx 进行微调的层数
+>   learning_rate: 1e-5 # Adam 学习率。
+>   resume_adapter_file: null # 使用给定适配器权重恢复训练的加载路径。
+>   adapter_path: "adapters" # 保存/加载训练过的适配器权重的路径。
+>   train: True
+>   test: false # 训练后在测试集上进行评估
+>   test_batches: 100 # 测试集批次数，-1 使用整个测试集。
+>   use_dora: false # 使用 DoRA 而不是 LoRA。
+>   lr_schedule: null,
+>   seed: 1212,
+>   train_arg:
+>       batch_size: 4 # 最小批次大小。
+>       iters: 100 # 要训练的迭代次数。
+>       val_batches: 25 # 验证批次数，-1 使用整个验证集。
+>       steps_per_report: 10 # 损失报告之间的训练步骤数。
+>       steps_per_eval: 50 # 验证之间的训练步骤数。
+>       save_every: 50 # 每 N 次迭代保存一次模型。
+>       max_seq_length: 2048 # 最大序列长度。
+>       grad_checkpoint: false # 使用梯度检查点来减少内存使用。
+> ```
+
+
 ## 本地联邦学习微调
 
 **效率**：我们考虑对本地客户端使用参数高效微调技术，例如LoRA。
@@ -42,7 +72,7 @@ python main_fl_socket.py --use_server_dp=true
 ```
 
 我们还支持使用 [gRPC](https://grpc.io/) 进行客户端和服务器通信，你可以运行以下脚本：
-
+> 对于 mlx 训练，目前不支持 gRPC，我们将在未来加入支持。
 ```
 python main_fl_grpc.py
 ```

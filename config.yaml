@@ -1,12 +1,12 @@
 model:
-  model_path: "HuggingFaceTB/SmolLM-360M-Instruct"
-  quantization: 4 # 4 or 8 or null. Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision.
-  device_map: 'cpu' # support cuda, cpu and mps
-  torch_dtype: 'bfloat16'
-  target_modules: ['down_proj'] # finetune target layers, only `torch.nn.Linear` and `Conv1D` are supported
+  model_path: "mlx-community/Mistral-7B-Instruct-v0.3-4bit"
+  quantization: null # 4 or 8 or null. Set 4 or 8 to use Qlora. Quantization refers to techniques for performing computations and storing tensors at lower bitwidths than floating point precision.
+  device_map: 'mlx' # support cuda, cpu, mps and mlx for os system
+  torch_dtype: 'float16'
+  target_modules: ['q_proj'] # finetune target layers, only `torch.nn.Linear` and `Conv1D` are supported
   lora:
-    peft_lora_r: 8 # It determines the rank of the low-rank matrix and affects the representation ability of the model.
-    peft_lora_alpha: 16 # It is a scaling factor that adjusts the contribution of the low-rank matrix to the overall model.
+    peft_lora_r: 4 # It determineås the rank of the low-rank matrix and affects the representation ability of the model.
+    peft_lora_alpha: 8 # It is a scaling factor that adjusts the contribution of the low-rank matrix to the overall model.
 sft:
   learning_rate_max: 5e-5
   learning_rate_min: 1e-6
@@ -22,20 +22,40 @@ sft:
     remove_unused_columns: True
     seed: 1234
     learning_rate: 5e-6 # to be set by the client
-    per_device_train_batch_size: 4
+    per_device_train_batch_size: 2
     per_device_eval_batch_size: 4
     gradient_accumulation_steps: 1
     logging_steps: 20
     log_level: "info"
     logging_strategy: "steps"
     num_train_epochs: 1
-    max_steps: -1
+    max_steps: 10
     save_steps: 100
     save_total_limit: 1
     gradient_checkpointing: True
     lr_scheduler_type: "cosine"
     warmup_ratio: 0.2
     do_eval: False
+mlx:
+    lora_layers: 16 # Number of layers to fine-tune by using mlx
+    learning_rate: 1e-5 # Adam learning rate.
+    resume_adapter_file: null # Load path to resume training with the given adapter weights.
+    adapter_path: "adapters" # Save/load path for the trained adapter weights.
+    train: True
+    test: false # Evaluate on the test set after training
+    test_batches: 100 # Number of test set batches, -1 uses the entire test set.
+    use_dora: false # Use DoRA instead of LoRA.
+    lr_schedule: null
+    seed: 1212
+    train_arg:
+      batch_size: 4 # Minibatch size.
+      iters: 20 # Iterations to train for.
+      val_batches: 25 # Number of validation batches, -1 uses the entire validation set.
+      steps_per_report: 10 # Number of training steps between loss reporting.
+      steps_per_eval: 50 # Number of training steps between validations.
+      save_every: 50 # Save the model every N iterations.
+      max_seq_length: 2048 # Maximum sequence length.
+      grad_checkpoint: false # Use gradient checkpointing to reduce memory use.
 client:
   host: 127.0.0.1
   port: 8088
@@ -52,6 +72,6 @@ server:
   restful_url: "http://127.0.0.1:8080"
   clients_file_save_path: "./save" # the path of the weight file sent by the clients
   output_path: "./server_output" # the save path of the model file after weight aggregation and evaluation result file
-dataset_name: "medalpaca/medical_meadow_medical_flashcards"
-num_clients: 2 # client number in federated learning
+dataset_name: "./examples/datasets/mlx_datasets" 
+num_clients: 1 # client number in federated learning
 chain_record: False # whether to connect to chain or not

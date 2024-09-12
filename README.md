@@ -4,7 +4,7 @@ Language: [[English]](README.md) [[中文]](docs/README-cn.md)
 
 ## Overview
 
-This project aims to integrate Federated Learning (FL) with protocol technology to enhance data privacy and security in machine learning applications. Federated Learning allows training a global model across decentralized devices that hold local data samples without exchanging them. By combining protocol, we can ensure that the federated learning process is immutable, transparent, and secure.
+This project aims to integrate Federated Learning (FL) with blockchain technology to enhance data privacy and security in machine learning applications. Federated Learning allows training a global model across decentralized devices that hold local data samples without exchanging them. By combining blockchain, we can ensure that the federated learning process is immutable, transparent, and secure.
 
 
 ## Setup
@@ -23,10 +23,39 @@ In our initial **config.yaml** file, you need to set your **model path** and **d
 model:
   model_path:  # model path in Hugging face or local model path
   quantization: 8 # if you want to use cpu, please set this to null
-  device_map: "cuda" # support cuda, cpu and mps
+  device_map: "cuda" # support cuda, cpu, mps and mlx for os system
  
 dataset_name： # dataset in Hugging face or local dataset path
 ```
+
+### For OS training config setting
+> For OS training, you must set **device_map** to **mlx**. <br>
+> You need to use specific dataset format for mlx training, please refer to **examples/datasets/mlx_datasets** <br>
+> You can only use models from [**mlx-community**](https://huggingface.co/mlx-community) in huggingface. Or you can conver your model to specific model structure by using function **convert** in **utils/mlx_utils.py**.
+> 
+> More parameters setting for mlx training is in **config.yaml** **mlx** part <br>
+> ```
+> mlx:
+>   lora_layers: 16 # Number of layers to fine-tune by using mlx
+>   learning_rate: 1e-5 # Adam learning rate.
+>   resume_adapter_file: null # Load path to resume training with the given adapter weights.
+>   adapter_path: "adapters" # Save/load path for the trained adapter weights.
+>   train: True
+>   test: false # Evaluate on the test set after training
+>   test_batches: 100 # Number of test set batches, -1 uses the entire test set.
+>   use_dora: false # Use DoRA instead of LoRA.
+>   lr_schedule: null
+>   seed: 1212
+>   train_arg:
+>     batch_size: 4 # Minibatch size.
+>     iters: 100 # Iterations to train for.
+>     val_batches: 25 # Number of validation batches, -1 uses the entire validation set.
+>     steps_per_report: 10 # Number of training steps between loss reporting.
+>     steps_per_eval: 50 # Number of training steps between validations.
+>     save_every: 50 # Save the model every N iterations.
+>     max_seq_length: 2048 # Maximum sequence length.
+>     grad_checkpoint: false # Use gradient checkpointing to reduce memory use.
+> ```
 
 
 ## Local Federated Learning Fine-tuning
@@ -47,7 +76,7 @@ If you want to use differential privacy in server side, you can set **local_dp**
  ```
 
 We also support [gRPC](https://grpc.io/) for client and server communication, you can run this script to simulate:
-
+> For mlx training, gRPC is not supported now, we will support this in the future.
 ```
 python main_fl_grpc.py
 ```
@@ -376,13 +405,13 @@ def update(self):
         print("No Lora config and weights found. Skipping update.")
 ```
 
-## Protocol Support
+## Blockchain Support
 
-In order to ensure fairness and security, we have designed a decentralized on-protocol role-based access control architecture. Different roles have different permissions and functions to ensure that user data is secure and cannot be tampered with on the protocol. For relevant details, please visit [FLBRoleDesign](./chain/FLBRoleDesign.md) document.
+In order to ensure fairness and security, we have designed a decentralized on-chain role-based access control architecture. Different roles have different permissions and functions to ensure that user data is secure and cannot be tampered with on the chain. For relevant details, please visit [FLBRoleDesign](./chain/FLBRoleDesign.md) document.
 
-**Privacy**: We develop smart contract to support data record and reward distribution in protocol.
+**Privacy**: We develop smart contract on chain to support data record and reward distribution in blockchain.
 
-We have deployed a Solidity smart contract on our protocol to record user training data and user scores. The files related to the smart contract project are located in the `chain/contract/` directory, developed based on the Hardhat framework, an EVM-based smart contract development environment. Developers can also refer to this contract code to deploy their contracts. For more detailed information, please refer to the smart contract project's [README-Chain](../chain/README.md) document.
+We have deployed a Solidity smart contract on the Cerbo Chain to record user training data and user scores. The files related to the smart contract project are located in the `chain/contract/` directory, developed based on the Hardhat framework, an EVM-based smart contract development environment. Developers can also refer to this contract code to deploy their contracts. For more detailed information, please refer to the smart contract project's [README-Chain](../chain/README.md) document.
 
 ```solidity
 contract FLB is Ownable {
@@ -484,13 +513,13 @@ Right now we use **number of times to upload weights * size of weight file uploa
 >```
 
 
-> You can set **chain_record** in `config.yaml` to **True** if you want to connect with protocol. The default value of **chain_record** is **False**.
+> You can set **chain_record** in `config.yaml` to **True** if you want to connect with blockchain. The default value of **chain_record** is **False**.
 
-In order to interact with the protocol, you need to prepare `node.js v20.16.0` or higher.
+In order to interact with the blockchain, you need to prepare `node.js v20.16.0` or higher.
 
 ### Creating Accounts
 
-Two roles are required in the interaction with the protocol: administrator and user. The administrator is the creator of the smart contract and is responsible for updating the user score to the protocol; the user as a client is a participant of the protocol and can upload model weight to the protocol. Generate administrator and user accounts by executing the scripts `createAdmin.js` and `createAccount.js`:
+Two roles are required in the interaction with the chain: administrator and user. The administrator is the creator of the smart contract and is responsible for updating the user score to the chain; the user as a client is a participant of the blockchain and can upload model weight to the chain. Generate administrator and user accounts by executing the scripts `createAdmin.js` and `createAccount.js`:
 
 ```shell
 cd ./chain/contract/sample
@@ -520,9 +549,9 @@ user account address: 0xA178d222D1a5B30900A3DFC404876cf8340048C9
 
 ### Token Usage
 
-Interacting with the protocol requires a certain amount of gas, which is common practice in protocol to prevent malicious users from consuming a large amount of on-protocol resources and causing network congestion. Therefore, you need to acquire tokens to pay for the transaction gas fees. In our protocol, we use `CBO` tokens as gas fees.
+Interacting with the chain requires a certain amount of gas, which is common practice in blockchain to prevent malicious users from consuming a large amount of on-chain resources and causing network congestion. Therefore, you need to acquire tokens to pay for the transaction gas fees. In the Cerbo Chain, we use `CBO` tokens as gas fees.
 
-In the process of interacting with the protocol, a certain amount of gas needs to be consumed, so you need to transfer some tokens to the administrator account and the ordinary user account respectively. Get test tokens through this faucet link: https://dev-faucet.cerboai.com/ Just pass in the address and click the button.
+In the process of interacting with the chain, a certain amount of gas needs to be consumed, so you need to transfer some tokens to the administrator account and the ordinary user account respectively. Get test tokens through this faucet link: https://dev-faucet.cerboai.com/ Just pass in the address and click the button.
 
 ### Deploy the contract
 
@@ -541,9 +570,9 @@ For example, the printed contract address might look like this:
 contract address: 0xF872b3704980BC87e87E5EabDFfCf357CBC28C0F
 ```
 
-### Protocol Explorer
+### Blockchain Explorer
 
-During interaction with the protocol, you can view transaction information through a protocol explorer. The protocol explorer address is https://dev-scan.cerboai.com/. For example, the contract deployment transaction mentioned above can be seen in detail on the protocol explorer, including the transaction hash, transaction status, transaction fee, and timestamp.
+During interaction with the chain, you can view transaction information through a blockchain explorer. The blockchain explorer address is https://dev-scan.cerboai.com/. For example, the contract deployment transaction mentioned above can be seen in detail on the blockchain explorer, including the transaction hash, transaction status, transaction fee, and timestamp.
 
 ![be.png](./docs/be.png)
 
@@ -551,6 +580,6 @@ During interaction with the protocol, you can view transaction information throu
 
 For more details on the project's implementation and usage, please refer to the documentation provided in the repository.
 
-This README serves as a quick start guide to set up and run the integration of Federated Learning and protocol technology. For any issues or contributions, please refer to the repository's issue tracker and contribution guidelines.
+This README serves as a quick start guide to set up and run the integration of Federated Learning and blockchain technology. For any issues or contributions, please refer to the repository's issue tracker and contribution guidelines.
 
 Under Construction .. 

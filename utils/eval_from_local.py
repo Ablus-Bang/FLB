@@ -344,11 +344,11 @@ if __name__ == "__main__":
     parser.add_argument("--ntrain", "-k", type=int, default=1, help="few-shot examples amount, default is 3")
     parser.add_argument("--selected_subjects", "-sub", type=str, default="history", help="selected subjects: biology, business, chemistry, computer science, economics, engineering, health, history, law, math, philosophy, physics, psychology, other, all. default is 'all'")
     parser.add_argument("--save_dir", "-s", type=str, default="eval_results", help="evaluation results save dir, default is 'eval_results'")
-    parser.add_argument("--lora_config_path", "-lc",type=str, help="lora config folder path")
-    parser.add_argument("--lora_weights_path", "-lw",type=str, help="lora weights bin file path")
+    parser.add_argument("--lora_config_path", "-lc", default="/home/zxd/workspace/opensource/FLB/output",type=str, help="lora config folder path")
+    parser.add_argument("--lora_weights_path", "-lw",default="/home/zxd/workspace/qstar/FLB/save/local_output_0/20240826/212656/pytorch_model.bin", type=str, help="lora weights bin file path")
     parser.add_argument("--global_record_file", "-grf", type=str,
                         default="eval_record_collection.csv", help="global log record file, default is 'eval_record_collection.csv'")
-    parser.add_argument("--model", "-m", type=str, default="HuggingFaceTB/SmolLM-360M-Instruct", help="local model path")
+    parser.add_argument("--model", "-m", type=str, default="/home/zxd/workspace/models/phi3-4k-mini", help="local model path")
 
     args = parser.parse_args()
     os.makedirs(args.save_dir, exist_ok=True)

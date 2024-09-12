@@ -19,7 +19,7 @@ import grpc
 from concurrent import futures
 from utils.proto_py import communicate_pb2_grpc
 from utils.grpc import GRPC_MAX_MESSAGE_LENGTH
-from utils.models import get_model_and_tokenizer
+from utils.model import get_model_and_tokenizer
 from .grpc_servicer import WeightsTransferServicer
 import json
 import time
@@ -48,15 +48,16 @@ class BaseServer:
             os.makedirs(output_path, exist_ok=True)
             self.latest_version = latest_time
             self.pre_version = latest_time
-            model, _ = get_model_and_tokenizer(self.cfg_path)
-            torch.save(
-                model.state_dict(),
-                os.path.join(
-                    self.output,
-                    self.latest_version,
-                    "adapter_model.bin",
-                ),
-            )
+            if self.config_detail.model.device_map != "mlx":
+                model, _ = get_model_and_tokenizer(self.cfg_path)
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(
+                        self.output,
+                        self.latest_version,
+                        "adapter_model.bin",
+                    ),
+                )
         else:
             self.pre_version = folder_list[-2].split('/')[-1] if len(folder_list) > 1 else self.latest_version
         self.use_chain = self.config_detail.chain_record
