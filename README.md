@@ -16,6 +16,15 @@ conda activate flb
 pip install -r requirements.txt
 ```
 
+### CPU
+You can use CPU to do training, but we suggest to use GPU for faster training.
+
+### GPU support
+If you want to use GPU for training, we recommend NVIDIA RTX 30 series and above graphics cards with at least 8GB of video memory. Memory at least 16GB of RAM.
+
+### For Mac OS
+For Mac OS training, only support Macbook with newer than M2 chips now. 
+
 ## Configuring Files
 In our initial **config.yaml** file, you need to set your **model path** and **dataset name**. 
 
@@ -28,14 +37,8 @@ model:
 dataset_name： # dataset in Hugging face or local dataset path
 ```
 
-### CPU
-You can use CPU to do training, but we suggest to use GPU for faster training.
-
-### GPU support
-If you want to use GPU for training, we recommend NVIDIA RTX 30 series and above graphics cards with at least 8GB of video memory. Memory at least 16GB of RAM.
 
 ### For OS training config setting
-> For OS training, only support Macbook with newer than M2 chips. <br>
 > You must set **device_map** to **mlx**. <br>
 > You need to use specific dataset format for mlx training, please refer to **examples/datasets/mlx_datasets** <br>
 > You can only use models from [**mlx-community**](https://huggingface.co/mlx-community) in huggingface. Or you can conver your model to specific model structure by using function **convert** in **utils/mlx_utils.py**.
