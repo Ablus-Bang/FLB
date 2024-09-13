@@ -3,7 +3,7 @@ from os import path
 import sys
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from client.client import BaseClient
+from client.client import Client
 from server.server import BaseServer
 from omegaconf import OmegaConf
 from threading import Thread
@@ -34,7 +34,7 @@ def run_simulation(use_server_dp=False):
     server_thread = Thread(target=server_side)
     server_thread.start()
 
-    client = BaseClient("123355", CFG_PATH)
+    client = Client("123355", CFG_PATH)
     client.run_grpc_client()
 
     server_thread.join()

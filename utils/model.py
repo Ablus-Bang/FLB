@@ -12,6 +12,8 @@ def get_model_and_tokenizer(cfg_path):
         torch_dtype = torch.bfloat16
     elif config_detail.model.torch_dtype == "float16":
         torch_dtype = torch.float16
+    elif config_detail.model.torch_dtype == "float32":
+        torch_dtype = torch.float32
     else:
         torch_dtype = None
 

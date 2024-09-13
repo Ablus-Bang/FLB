@@ -1,11 +1,12 @@
+import warnings
+warnings.simplefilter("ignore", UserWarning)
 import os
 from os import path
 import sys
-
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+
 from .baseclient import BaseClient
-from transformers import TrainingArguments
-from trl import SFTTrainer
+from trl import SFTTrainer,SFTConfig
 from peft import set_peft_model_state_dict, get_peft_model_state_dict, PeftModel, LoraConfig
 from collections import OrderedDict
 from utils.process_data import process_dataset_for_unified_format, get_dataset
@@ -42,10 +43,11 @@ class Client(BaseClient):
         super().__init__(client_id, cfg_path)      
         self.model = None
         self.tokenizer = None
-        self.training_args = TrainingArguments(
+        self.sftconfig = SFTConfig(
             **self.config_detail.sft.training_arguments,
             use_cpu=True if self.config_detail.model.device_map == "cpu" else False,
-            use_mps_device= True if self.config_detail.model.device_map == "mps" else False,
+            max_seq_length=self.config_detail.sft.max_seq_length,
+            dataset_text_field="text",
         )
        
 
@@ -104,14 +106,14 @@ class Client(BaseClient):
         ).__get__(self.model, type(self.model))
 
     def local_trainer_set(self):
+        
         self.trainer = SFTTrainer(
             model=self.model,
             tokenizer=self.tokenizer,
-            args=self.training_args,
-            max_seq_length=self.config_detail.sft.max_seq_length,
+            args=self.sftconfig,
             train_dataset=self.train_dataset,
             eval_dataset=self.test_dataset,
-            dataset_text_field="text",
+            
         )
 
     def train(self):
@@ -154,7 +156,7 @@ class Client(BaseClient):
     def save(self):
         new_adapter_weight = self.model.state_dict()
         single_output_dir = os.path.join(
-            self.training_args.output_dir,
+            self.sftconfig.output_dir,
             "local_output_{}".format(self.client_id),
         )
         os.makedirs(single_output_dir, exist_ok=True)

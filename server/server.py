@@ -163,7 +163,7 @@ class BaseServer:
                         data += packet
                     recv_data = pickle.loads(data)
                     print(
-                        f'Received data from client: {recv_data["client_id"]}, data: {recv_data}'
+                        f'Received data from client: {recv_data["client_id"]}\n lora: {recv_data["lora_config"]}\nweights keys :{len(recv_data["new_model_weight"])}'
                     )
                     client_list.append(recv_data["client_id"])
                     client_weights[recv_data["client_id"]] = recv_data[
