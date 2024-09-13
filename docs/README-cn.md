@@ -13,12 +13,30 @@ conda create -n flb python=3.11
 conda activate flb
 pip install -r requirements.txt
 ```
+**注意**  如果机器不是苹果M芯片系列，安装mlx和mlx-lm依赖可能会报错，可以选择注释掉重新安装。
 
 ### CPU
 你可以使用CPU进行模型训练，但是我们建议使用GPU来减短训练时长。
 
 ### GPU 支持
 如果你要使用GPU进行训练，推荐使用NVIDIA RTX 30系列及以上显卡，显存至少8GB。内存至少16GB RAM。
+
+#### 检查CUDA环境
+打开命令提示符窗口（例如PowerShell或命令提示符），然后输入以下命令：
+
+```
+nvcc --version
+```
+如果已安装CUDA，它将显示CUDA编译器工具的版本信息，类似于以下输出：
+
+![cudaversion.png](./cuda_version.jpg)
+
+#### 安装CUDA
+如果存在GPU但没有CUDA信息，请按照以下教程安装CUDA：
+
+[NVIDIA CUDA Installation Guide for Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
+
+[CUDA Installation Guide for Microsoft Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html)
 
 ### 针对Mac OS 平台
 对于Mac OS 系统，当前仅支持 M2 及其以上芯片的 Macbook。
@@ -53,8 +71,8 @@ dataset_name： # Hugging face中的数据集或本地数据集路径
 >   test: false # 训练后在测试集上进行评估
 >   test_batches: 100 # 测试集批次数，-1 使用整个测试集。
 >   use_dora: false # 使用 DoRA 而不是 LoRA。
->   lr_schedule: null,
->   seed: 1212,
+>   lr_schedule: null
+>   seed: 1212
 >   train_arg:
 >       batch_size: 4 # 最小批次大小。
 >       iters: 100 # 要训练的迭代次数。

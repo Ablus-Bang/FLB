@@ -16,11 +16,32 @@ conda activate flb
 pip install -r requirements.txt
 ```
 
+**Note** If the machine is not part of the Apple M-series chips, installing the mlx and mlx-lm dependency may result in an error. You can choose to comment it out and reinstall.
+
+
 ### CPU
 You can use CPU to do training, but we suggest to use GPU for faster training.
 
 ### GPU support
 If you want to use GPU for training, we recommend NVIDIA RTX 30 series and above graphics cards with at least 8GB of video memory. Memory at least 16GB of RAM.
+
+#### Check the CUDA environment.
+
+Open the command prompt window (such as PowerShell or Command Prompt), and then enter the following command:
+```
+nvcc --version
+```
+If CUDA is installed, it will display the version information of the CUDA compiler tools, similar to the following output:
+
+![cudaversion.png](./docs/cuda_version.jpg)
+
+#### Install CUDA
+If there is a GPU but no CUDA information, please follow the tutorial below to install CUDA:
+
+[NVIDIA CUDA Installation Guide for Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
+
+[CUDA Installation Guide for Microsoft Windows](https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html)
+
 
 ### For Mac OS
 For Mac OS training, only support Macbook with newer than M2 chips now. 
@@ -54,8 +75,8 @@ dataset_name： # dataset in Hugging face or local dataset path
 >   test: false # Evaluate on the test set after training
 >   test_batches: 100 # Number of test set batches, -1 uses the entire test set.
 >   use_dora: false # Use DoRA instead of LoRA.
->   lr_schedule: null,
->   seed: 1212,
+>   lr_schedule: null
+>   seed: 1212
 >   train_arg:
 >     batch_size: 4 # Minibatch size.
 >     iters: 100 # Iterations to train for.
