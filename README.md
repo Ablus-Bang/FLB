@@ -33,7 +33,13 @@ nvcc --version
 ```
 If CUDA is installed, it will display the version information of the CUDA compiler tools, similar to the following output:
 
-![cudaversion.png](./docs/cuda_version.jpg)
+```
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Tue_Feb_27_16:19:38_PST_2024
+Cuda compilation tools, release 12.4, V12.4.99
+Build cuda_12.4.r12.4/compiler.33961263_0
+```
 
 #### Install CUDA
 If there is a GPU but no CUDA information, please follow the tutorial below to install CUDA:
