@@ -59,7 +59,11 @@ def fed_average(dataset_len_list, file_path_list, clients_weights_dict=None):
             p,
             "pytorch_model.bin",
         )
-        single_weights = torch.load(single_output_dir) if clients_weights_dict is None else clients_weights_dict[p]
+        single_weights = (
+            torch.load(single_output_dir)
+            if clients_weights_dict is None
+            else clients_weights_dict[p]
+        )
         if k == 0:
             weighted_single_weights = {
                 key: single_weights[key] * (weights_array[k])

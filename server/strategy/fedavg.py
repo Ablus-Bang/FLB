@@ -7,7 +7,9 @@ class FedAvg(Strategy):
         super().__init__()
         self.params_current = None
 
-    def aggregate(self, client_list, dataset_len_list, weight_path_list, clients_weights_dict=None):
+    def aggregate(
+        self, client_list, dataset_len_list, weight_path_list, clients_weights_dict=None
+    ):
         return fed_average(dataset_len_list, weight_path_list, clients_weights_dict)
 
     def set_model_parameters(self, parameter):

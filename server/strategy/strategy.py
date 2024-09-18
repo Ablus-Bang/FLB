@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 class Strategy(ABC):
 
     @abstractmethod
-    def aggregate(self, client_list, dataset_len_list, weight_path_list, clients_weights_dict=None):
+    def aggregate(
+        self, client_list, dataset_len_list, weight_path_list, clients_weights_dict=None
+    ):
         """Aggregate results from clients
 
         :param client_list client id list

@@ -31,7 +31,9 @@ def create_channel(
 
     if insecure:
         channel = grpc.insecure_channel(server_address, options=channel_options)
-        logging.log(DEBUG, "Opened insecure gRPC connection (no certificates were passed)")
+        logging.log(
+            DEBUG, "Opened insecure gRPC connection (no certificates were passed)"
+        )
     else:
         ssl_channel_credentials = grpc.ssl_channel_credentials(root_certificates)
         channel = grpc.secure_channel(

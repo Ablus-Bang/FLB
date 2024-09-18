@@ -12,20 +12,21 @@ def compute_stdv(
     return float((noise_multiplier * clipping_norm) / num_sampled_clients)
 
 
-def add_gaussian_noise(input_data, noise_multiplier, clipping_norm, num_sampled_clients, device=None):
-    return local_add_gaussian_noise(input_data,
-                                    compute_stdv(
-                                        noise_multiplier,
-                                        clipping_norm,
-                                        num_sampled_clients
-                                    ),
-                                    device
-                                    )
+def add_gaussian_noise(
+    input_data, noise_multiplier, clipping_norm, num_sampled_clients, device=None
+):
+    return local_add_gaussian_noise(
+        input_data,
+        compute_stdv(noise_multiplier, clipping_norm, num_sampled_clients),
+        device,
+    )
 
 
 def local_add_gaussian_noise(input_data, std_dev, device):
     for k, layer in input_data.items():
-        input_data[k] = layer.to(device) + torch.normal(0, std_dev, layer.shape).to(device)
+        input_data[k] = layer.to(device) + torch.normal(0, std_dev, layer.shape).to(
+            device
+        )
     return input_data
 
 
@@ -45,7 +46,9 @@ def clip_l2_norm(client_parameter, server_parameter, clip_threshold, device):
     update_norm = get_norm(update)
 
     scaling_factor = min(1, clip_threshold / update_norm)
-    update_clipped = [torch.from_numpy(layer * scaling_factor).to(device) for layer in update]
+    update_clipped = [
+        torch.from_numpy(layer * scaling_factor).to(device) for layer in update
+    ]
     for i, k in enumerate(server_parameter.keys()):
         client_parameter[k] = server_parameter[k] + update_clipped[i]
     return client_parameter, (scaling_factor < 1)

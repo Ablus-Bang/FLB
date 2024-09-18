@@ -8,6 +8,8 @@ from google.protobuf import struct_pb2
 from utils.grpc import create_channel, GRPC_MAX_MESSAGE_LENGTH
 from .message import ClientSideMessage, SEND_PARAMETERS
 from utils.proto_py import communicate_pb2, communicate_pb2_grpc
+import numpy as np
+from mlx.core import array
 
 
 def serialize_model_state_dict(state_dict):
@@ -15,7 +17,12 @@ def serialize_model_state_dict(state_dict):
     for key, tensor in state_dict.items():
         # Use a buffer to store the serialized tensor
         buffer = io.BytesIO()
-        torch.save(tensor, buffer)
+        if type(tensor) == array:
+            tensor_np = np.array(tensor)
+            torch_tensor = torch.from_numpy(tensor_np)
+            torch.save(torch_tensor, buffer)
+        else:
+            torch.save(tensor, buffer)
         serialized_state_dict[key] = buffer.getvalue()
     return serialized_state_dict
 
@@ -49,10 +56,12 @@ def convert_to_value(value):
 
 
 @contextmanager
-def grpc_connection(server_address,
-                    insecure,
-                    root_certificates=None,
-                    max_message_length=GRPC_MAX_MESSAGE_LENGTH):
+def grpc_connection(
+    server_address,
+    insecure,
+    root_certificates=None,
+    max_message_length=GRPC_MAX_MESSAGE_LENGTH,
+):
     """Establish a gRPC connection to a gRPC server"""
     if isinstance(root_certificates, str):
         root_certificates = Path(root_certificates).read_bytes()
@@ -75,17 +84,18 @@ def grpc_connection(server_address,
         if message_type == SEND_PARAMETERS:
             lora_config_message = [
                 communicate_pb2.LoraConfig(
-                    config_name=k,
-                    config_value=convert_to_value(v)
+                    config_name=k, config_value=convert_to_value(v)
                 )
-                for k, v in detail['lora_config'].items()
+                for k, v in detail["lora_config"].items()
             ]
             msg_proto = communicate_pb2.ClientGrpcMessage(
                 send_parameters=communicate_pb2.ClientGrpcMessage.SendParameters(
-                    client_id=detail['client_id'],
-                    train_dataset_length=detail['train_dataset_length'],
-                    new_model_weight=serialize_model_state_dict(detail['new_model_weight']),
-                    lora_config=lora_config_message
+                    client_id=detail["client_id"],
+                    train_dataset_length=detail["train_dataset_length"],
+                    new_model_weight=serialize_model_state_dict(
+                        detail["new_model_weight"]
+                    ),
+                    lora_config=lora_config_message,
                 )
             )
             response = stub.SendWeights(msg_proto)
@@ -100,4 +110,3 @@ def grpc_connection(server_address,
         # Make sure to have a final
         channel.close()
         logging.log(DEBUG, "gRPC channel closed")
-

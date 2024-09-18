@@ -1,13 +1,20 @@
 import warnings
+
 warnings.simplefilter("ignore", UserWarning)
 import os
 from os import path
 import sys
+
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from .baseclient import BaseClient
-from trl import SFTTrainer,SFTConfig
-from peft import set_peft_model_state_dict, get_peft_model_state_dict, PeftModel, LoraConfig
+from trl import SFTTrainer, SFTConfig
+from peft import (
+    set_peft_model_state_dict,
+    get_peft_model_state_dict,
+    PeftModel,
+    LoraConfig,
+)
 from collections import OrderedDict
 from utils.process_data import process_dataset_for_unified_format, get_dataset
 from utils.model import get_model_and_tokenizer
@@ -25,7 +32,6 @@ import requests
 from datetime import datetime
 
 
-
 def cosine_lr(
     current_round: int,
     total_round: int,
@@ -38,9 +44,10 @@ def cosine_lr(
         1 + math.cos(cos_inner)
     )
 
+
 class Client(BaseClient):
     def __init__(self, client_id, cfg_path):
-        super().__init__(client_id, cfg_path)      
+        super().__init__(client_id, cfg_path)
         self.model = None
         self.tokenizer = None
         self.sftconfig = SFTConfig(
@@ -49,7 +56,6 @@ class Client(BaseClient):
             max_seq_length=self.config_detail.sft.max_seq_length,
             dataset_text_field="text",
         )
-       
 
         self.train_dataset = None
         self.test_dataset = None
@@ -58,23 +64,21 @@ class Client(BaseClient):
         self.use_chain = self.config_detail.chain_record
         self.ldp = self.config_detail.client.local_dp
         os.makedirs(self.config_detail.client.weight_file_download_path, exist_ok=True)
-        self.model_weights_download_path = self.config_detail.client.weight_file_download_path
+        self.model_weights_download_path = (
+            self.config_detail.client.weight_file_download_path
+        )
 
     def prepare_dataset(self):
         train_full = get_dataset(self.config_detail.dataset_name)
         train_test = train_full.train_test_split(test_size=0.1, seed=1122)
         train_dataset = train_test["train"]
         test_dataset = train_test["test"]
-        self.train_dataset = process_dataset_for_unified_format(self.config_detail.dataset_name,
-                                                                train_dataset,
-                                                                self.tokenizer,
-                                                                seed=1122
-                                                                )
-        self.test_dataset = process_dataset_for_unified_format(self.config_detail.dataset_name,
-                                                               test_dataset,
-                                                               self.tokenizer,
-                                                               seed=1122
-                                                               )
+        self.train_dataset = process_dataset_for_unified_format(
+            self.config_detail.dataset_name, train_dataset, self.tokenizer, seed=1122
+        )
+        self.test_dataset = process_dataset_for_unified_format(
+            self.config_detail.dataset_name, test_dataset, self.tokenizer, seed=1122
+        )
 
     def init_local_model(self):
         self.model, self.tokenizer = get_model_and_tokenizer(self.cfg_path)
@@ -106,14 +110,13 @@ class Client(BaseClient):
         ).__get__(self.model, type(self.model))
 
     def local_trainer_set(self):
-        
+
         self.trainer = SFTTrainer(
             model=self.model,
             tokenizer=self.tokenizer,
             args=self.sftconfig,
             train_dataset=self.train_dataset,
             eval_dataset=self.test_dataset,
-            
         )
 
     def train(self):
@@ -123,29 +126,39 @@ class Client(BaseClient):
     def update(self):
         if self.config_detail.client.auto_pull is True:
             try:
-                url = f'{self.config_detail.server.restful_url}/latest_weight'
+                url = f"{self.config_detail.server.restful_url}/latest_weight"
                 response = requests.get(url, stream=True)
                 response.raise_for_status()
-                content_disposition = response.headers.get('Content-Disposition', '')
-                filename = content_disposition.split('filename=')[-1]
-                model_version = filename.split('-')[0]
-                save_path = os.path.join(self.model_weights_download_path, model_version)
+                content_disposition = response.headers.get("Content-Disposition", "")
+                filename = content_disposition.split("filename=")[-1]
+                model_version = filename.split("-")[0]
+                save_path = os.path.join(
+                    self.model_weights_download_path, model_version
+                )
                 os.makedirs(save_path, exist_ok=True)
-                with open(save_path + '/adapter_model.bin', 'wb') as file:
+                with open(save_path + "/adapter_model.bin", "wb") as file:
                     for chunk in response.iter_content(chunk_size=8192):
                         file.write(chunk)
                 print(f"Saved in {save_path}")
             except requests.RequestException as e:
-                print(f"Download weight file failed, please download manually. Error: {e}")
-                raise requests.RequestException(f"Download weight file failed, please download manually. Error: {e}")
+                print(
+                    f"Download weight file failed, please download manually. Error: {e}"
+                )
+                raise requests.RequestException(
+                    f"Download weight file failed, please download manually. Error: {e}"
+                )
 
-        lora_config_path = os.path.join(self.config_detail.sft.training_arguments.output_dir,
-                                        'adapter_config.json')
+        lora_config_path = os.path.join(
+            self.config_detail.sft.training_arguments.output_dir, "adapter_config.json"
+        )
         _, lora_weights_path_list = get_latest_folder(self.model_weights_download_path)
         if os.path.isfile(lora_config_path) and lora_weights_path_list:
-            lora_weights_path = os.path.join(lora_weights_path_list[0],
-                                             'adapter_model.bin')
-            config = LoraConfig.from_pretrained(self.config_detail.sft.training_arguments.output_dir)
+            lora_weights_path = os.path.join(
+                lora_weights_path_list[0], "adapter_model.bin"
+            )
+            config = LoraConfig.from_pretrained(
+                self.config_detail.sft.training_arguments.output_dir
+            )
             lora_weights = torch.load(lora_weights_path)
             model = PeftModel(self.model, config)
             set_peft_model_state_dict(model, lora_weights)
@@ -188,23 +201,27 @@ class Client(BaseClient):
                 self.model.state_dict(),
             )
             lora_config_path = self.config_detail.sft.training_arguments.output_dir
-            with open(lora_config_path + '/adapter_config.json', 'r') as f:
+            with open(lora_config_path + "/adapter_config.json", "r") as f:
                 lora_config = json.load(f)
 
             if self.ldp is True:
                 # Clipping
-                new_model_weight, _ = clip_l2_norm(new_model_weight,
-                                                   self.params_dict_old,
-                                                   self.config_detail.sft.clip_threshold,
-                                                   self.config_detail.model.device_map)
+                new_model_weight, _ = clip_l2_norm(
+                    new_model_weight,
+                    self.params_dict_old,
+                    self.config_detail.sft.clip_threshold,
+                    self.config_detail.model.device_map,
+                )
                 # Add gaussian noise
                 if self.config_detail.sft.dp_fedavg_gaussian_enabled is True:
-                    std_dev = self.config_detail.sft.sensitivity * np.sqrt(
-                        2 * np.log(1.25 / self.config_detail.sft.delta)
-                    ) / self.config_detail.sft.epsilon
-                    new_model_weight = local_add_gaussian_noise(new_model_weight,
-                                                                std_dev,
-                                                                self.config_detail.model.device_map)
+                    std_dev = (
+                        self.config_detail.sft.sensitivity
+                        * np.sqrt(2 * np.log(1.25 / self.config_detail.sft.delta))
+                        / self.config_detail.sft.epsilon
+                    )
+                    new_model_weight = local_add_gaussian_noise(
+                        new_model_weight, std_dev, self.config_detail.model.device_map
+                    )
 
             # Send updated weights
             data = pickle.dumps(
@@ -212,7 +229,7 @@ class Client(BaseClient):
                     "client_id": self.client_id,
                     "train_dataset_length": train_dataset_len,
                     "new_model_weight": new_model_weight,
-                    "lora_config": lora_config
+                    "lora_config": lora_config,
                 }
             )
             s.sendall(data)
@@ -230,10 +247,19 @@ class Client(BaseClient):
 
     def run_grpc_client(self):
         from .grpc_clients.grpc_client import grpc_connection
-        from .grpc_clients.message import SEND_PARAMETERS, ClientSideMessage, ClientSideMetadata
+        from .grpc_clients.message import (
+            SEND_PARAMETERS,
+            ClientSideMessage,
+            ClientSideMetadata,
+        )
+
         server_address = f"{self.config_detail.server.host}:50051"
         insecure = self.config_detail.client.grpc_insecure
-        auth_cer = self.config_detail.client.grpc_auth_cer_path if self.config_detail.client.grpc_auth_cer_path is not None else None
+        auth_cer = (
+            self.config_detail.client.grpc_auth_cer_path
+            if self.config_detail.client.grpc_auth_cer_path is not None
+            else None
+        )
         self.init_local_model()
         self.prepare_dataset()
         self.initiate_local_training()
@@ -245,27 +271,31 @@ class Client(BaseClient):
             self.model.state_dict(),
         )
         lora_config_path = self.config_detail.sft.training_arguments.output_dir
-        with open(lora_config_path + '/adapter_config.json', 'r') as f:
+        with open(lora_config_path + "/adapter_config.json", "r") as f:
             lora_config = json.load(f)
         if self.ldp is True:
             # Clipping
-            new_model_weight, _ = clip_l2_norm(new_model_weight,
-                                               self.params_dict_old,
-                                               self.config_detail.sft.clip_threshold,
-                                               self.config_detail.model.device_map)
+            new_model_weight, _ = clip_l2_norm(
+                new_model_weight,
+                self.params_dict_old,
+                self.config_detail.sft.clip_threshold,
+                self.config_detail.model.device_map,
+            )
             # Add gaussian noise
             if self.config_detail.sft.dp_fedavg_gaussian_enabled is True:
-                std_dev = self.config_detail.sft.sensitivity * np.sqrt(
-                    2 * np.log(1.25 / self.config_detail.sft.delta)
-                ) / self.config_detail.sft.epsilon
-                new_model_weight = local_add_gaussian_noise(new_model_weight,
-                                                            std_dev,
-                                                            self.config_detail.model.device_map)
+                std_dev = (
+                    self.config_detail.sft.sensitivity
+                    * np.sqrt(2 * np.log(1.25 / self.config_detail.sft.delta))
+                    / self.config_detail.sft.epsilon
+                )
+                new_model_weight = local_add_gaussian_noise(
+                    new_model_weight, std_dev, self.config_detail.model.device_map
+                )
         msg_content = {
-            'client_id': self.client_id,
-            'train_dataset_length': train_dataset_len,
-            'new_model_weight': new_model_weight,
-            'lora_config': lora_config
+            "client_id": self.client_id,
+            "train_dataset_length": train_dataset_len,
+            "new_model_weight": new_model_weight,
+            "lora_config": lora_config,
         }
         msg_data = ClientSideMessage(msg_content, ClientSideMetadata(SEND_PARAMETERS))
 
@@ -282,7 +312,7 @@ class Client(BaseClient):
                 current_date,
             )
             send_weight(weight_path)
-  
+
 
 if __name__ == "__main__":
     client = Client(client_id="1233", cfg_path="../config.yaml")

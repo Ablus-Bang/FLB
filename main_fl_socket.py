@@ -18,10 +18,7 @@ config_detail = OmegaConf.load(CFG_PATH)
 
 
 def runserver_with_dp():
-    dp_strategy = DpServerFixedClip(
-        cfg_path=CFG_PATH,
-        strategy=FedAvg()
-    )
+    dp_strategy = DpServerFixedClip(cfg_path=CFG_PATH, strategy=FedAvg())
     server = BaseServer(cfg_path=CFG_PATH, strategy=dp_strategy)
     server.start()
 
@@ -41,9 +38,10 @@ def run_simulation(use_server_dp=False):
     for i in range(config_detail.num_clients):
         if config_detail.model.device_map == "mlx":
             from client.mlxclient import MLXClient
+
             client = MLXClient(i, CFG_PATH)
         else:
-            from client.client import Client    
+            from client.client import Client
 
             client = Client(i, CFG_PATH)
         client.start()
@@ -53,11 +51,7 @@ def run_simulation(use_server_dp=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run local FL simulation"
-    )
+    parser = argparse.ArgumentParser(description="Run local FL simulation")
     parser.add_argument("--use_server_dp", required=False, type=bool, default=False)
     args = parser.parse_args()
     run_simulation(args.use_server_dp)
-
-   

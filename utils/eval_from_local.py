@@ -17,7 +17,24 @@ from peft import (
     set_peft_model_state_dict,
 )
 
-choices = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P"]
+choices = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L",
+    "M",
+    "N",
+    "O",
+    "P",
+]
 max_model_length = 4096
 max_new_tokens = 1024  # You need to scale this if you change the model or ntrain value
 
@@ -30,14 +47,15 @@ def load_mmlu_pro():
     return test_df, val_df
 
 
-def load_model_with_lora(model_path, device_map, lora_config_path='', lora_weights_path=''):
-    model = transformers.AutoModelForCausalLM.from_pretrained(model_path,
-                                                              device_map=device_map,
-                                                              torch_dtype="auto"
-                                                              )
-    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path,
-                                                           use_fast=True,
-                                                           padding_side="right")
+def load_model_with_lora(
+    model_path, device_map, lora_config_path="", lora_weights_path=""
+):
+    model = transformers.AutoModelForCausalLM.from_pretrained(
+        model_path, device_map=device_map, torch_dtype="auto"
+    )
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        model_path, use_fast=True, padding_side="right"
+    )
     tokenizer.pad_token = tokenizer.unk_token
     tokenizer.model_max_length = max_model_length
     tokenizer.pad_token_id = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
@@ -86,8 +104,9 @@ def format_cot_example(example, including_answer=True):
     for i, opt in enumerate(options):
         prompt += "{}. {}\n".format(choices[i], opt)
     if including_answer:
-        cot_content = example["cot_content"].replace("A: Let's think step by step.",
-                                                     "Answer: Let's think step by step.")
+        cot_content = example["cot_content"].replace(
+            "A: Let's think step by step.", "Answer: Let's think step by step."
+        )
         prompt += cot_content + "\n\n"
     else:
         prompt += "Answer: Let's think step by step."
@@ -102,7 +121,7 @@ def generate_cot_prompt(val_df, curr, k):
             prompt += line
     subject = curr["category"]
     val_df = select_by_category(val_df, subject)
-    val_df = val_df[: k]
+    val_df = val_df[:k]
     prompt = prompt.replace("{$}", subject) + "\n"
     for example in val_df:
         prompt += format_cot_example(example, including_answer=True)
@@ -121,7 +140,7 @@ def extract_answer(text):
 
 
 def extract_again(text):
-    match = re.search(r'.*[aA]nswer:\s*([A-J])', text)
+    match = re.search(r".*[aA]nswer:\s*([A-J])", text)
     if match:
         return match.group(1)
     else:
@@ -137,12 +156,16 @@ def extract_final(text):
         return None
 
 
-def batch_inference(model, tokenizer, inference_batch,batch_size=3):
-    outputs=[]
+def batch_inference(model, tokenizer, inference_batch, batch_size=3):
+    outputs = []
     for i in range(0, len(inference_batch), batch_size):
-        batch_data = inference_batch[i:i+batch_size]
-        inputs = tokenizer.batch_encode_plus(batch_data, return_tensors="pt",padding=True,truncation=True).to(model.device)
-        outputs.extend(model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=True))  
+        batch_data = inference_batch[i : i + batch_size]
+        inputs = tokenizer.batch_encode_plus(
+            batch_data, return_tensors="pt", padding=True, truncation=True
+        ).to(model.device)
+        outputs.extend(
+            model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=True)
+        )
     response_batch = []
     pred_batch = []
     for output in outputs:
@@ -151,6 +174,7 @@ def batch_inference(model, tokenizer, inference_batch,batch_size=3):
         pred = extract_answer(generated_text)
         pred_batch.append(pred)
     return pred_batch, response_batch
+
 
 def save_res(res, output_path):
     accu, corr, wrong = 0.0, 0.0, 0.0
@@ -189,7 +213,7 @@ def eval_cot(n_train, subject, model, tokenizer, val_df, test_df, output_path, d
         while not prompt_length_ok:
             prompt = generate_cot_prompt(val_df, curr, k)
             inputs = tokenizer(prompt, return_tensors="pt")
-            if device == 'cuda':
+            if device == "cuda":
                 inputs = {key: value.cuda() for key, value in inputs.items()}
             length = len(inputs["input_ids"][0])
             if length < max_model_length - max_new_tokens:
@@ -203,7 +227,11 @@ def eval_cot(n_train, subject, model, tokenizer, val_df, test_df, output_path, d
         curr["model_outputs"] = response_batch[j]
         res.append(curr)
     accu, corr, wrong = save_res(res, output_path)
-    logging.info("this batch accu is: {}, corr: {}, wrong: {}\n".format(str(accu), str(corr), str(wrong)))
+    logging.info(
+        "this batch accu is: {}, corr: {}, wrong: {}\n".format(
+            str(accu), str(corr), str(wrong)
+        )
+    )
 
     accu, corr, wrong = save_res(res, output_path)
     return accu, corr, wrong
@@ -215,7 +243,9 @@ def main():
     else:
         device_map = "auto"
 
-    model, tokenizer = load_model_with_lora(args.model, device_map, args.lora_config_path, args.lora_weights_path)
+    model, tokenizer = load_model_with_lora(
+        args.model, device_map, args.lora_config_path, args.lora_weights_path
+    )
 
     if not os.path.exists(save_result_dir):
         os.makedirs(save_result_dir)
@@ -238,7 +268,7 @@ def main():
     print("selected subjects:\n" + "\n".join(selected_subjects))
     sta_dict = {}
     selected_subjects = sorted(selected_subjects)
-    with open(os.path.join(summary_path), 'a') as f:
+    with open(os.path.join(summary_path), "a") as f:
         f.write("\n------category level sta------\n")
     for subject in selected_subjects:
         if subject not in sta_dict:
@@ -246,12 +276,25 @@ def main():
         test_df = select_by_category(full_test_df, subject)
         val_df = select_by_category(full_val_df, subject)
         output_path = os.path.join(save_result_dir, "{}.json".format(subject))
-        acc, corr_count, wrong_count = eval_cot(args.ntrain, subject, model, tokenizer, val_df, test_df, output_path, device_map)
+        acc, corr_count, wrong_count = eval_cot(
+            args.ntrain,
+            subject,
+            model,
+            tokenizer,
+            val_df,
+            test_df,
+            output_path,
+            device_map,
+        )
         sta_dict[subject]["corr"] = corr_count
         sta_dict[subject]["wrong"] = wrong_count
         sta_dict[subject]["accu"] = acc
-        with open(os.path.join(summary_path), 'a') as f:
-            f.write("Average accuracy {:.4f} - {}\n".format(sta_dict[subject]["accu"], subject))
+        with open(os.path.join(summary_path), "a") as f:
+            f.write(
+                "Average accuracy {:.4f} - {}\n".format(
+                    sta_dict[subject]["accu"], subject
+                )
+            )
     total_corr, total_wrong = 0.0, 0.0
     for k, v in sta_dict.items():
         total_corr += v["corr"]
@@ -259,17 +302,23 @@ def main():
     total_accu = total_corr / (total_corr + total_wrong + 0.000001)
     sta_dict["total"] = {"corr": total_corr, "wrong": total_wrong, "accu": total_accu}
 
-    with open(os.path.join(summary_path), 'a') as f:
+    with open(os.path.join(summary_path), "a") as f:
         f.write("\n------average acc sta------\n")
         weighted_acc = total_accu
         f.write("Average accuracy: {:.4f}\n".format(weighted_acc))
-    with open(global_record_file, 'a', newline='') as file:
+    with open(global_record_file, "a", newline="") as file:
         writer = csv.writer(file)
         record = args_generate_path(args) + [time_str, weighted_acc]
         writer.writerow(record)
 
 
-def eval_model(model_path, lora_config_path='', lora_weights_path='', n_train=5, save_dir="model_eval_results"):
+def eval_model(
+    model_path,
+    lora_config_path="",
+    lora_weights_path="",
+    n_train=5,
+    save_dir="model_eval_results",
+):
     # log file prepare
     os.makedirs(save_dir, exist_ok=True)
     save_result_dir = os.path.join(
@@ -277,25 +326,34 @@ def eval_model(model_path, lora_config_path='', lora_weights_path='', n_train=5,
     )
     file_prefix = "-".join([model_path.split("/")[-1], "CoT", "all"])
     timestamp = time.time()
-    time_str = time.strftime('%m-%d_%H-%M', time.localtime(timestamp))
+    time_str = time.strftime("%m-%d_%H-%M", time.localtime(timestamp))
     file_name = f"{file_prefix}_{time_str}_summary.txt"
     summary_path = os.path.join(save_dir, "summary", file_name)
     os.makedirs(os.path.join(save_dir, "summary"), exist_ok=True)
     os.makedirs(save_result_dir, exist_ok=True)
     save_log_dir = os.path.join(save_dir, "log")
     os.makedirs(save_log_dir, exist_ok=True)
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s',
-                        handlers=[logging.FileHandler(os.path.join(save_log_dir,
-                                                                   file_name.replace("_summary.txt",
-                                                                                     "_logfile.log"))),
-                                  logging.StreamHandler(sys.stdout)])
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[
+            logging.FileHandler(
+                os.path.join(
+                    save_log_dir, file_name.replace("_summary.txt", "_logfile.log")
+                )
+            ),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
 
     # prepare model, tokenizer and dataset
     if torch.cuda.is_available():
         device_map = "cuda"
     else:
         device_map = "auto"
-    model, tokenizer = load_model_with_lora(model_path, device_map, lora_config_path, lora_weights_path)
+    model, tokenizer = load_model_with_lora(
+        model_path, device_map, lora_config_path, lora_weights_path
+    )
 
     if not os.path.exists(save_result_dir):
         os.makedirs(save_result_dir)
@@ -311,7 +369,7 @@ def eval_model(model_path, lora_config_path='', lora_weights_path='', n_train=5,
 
     sta_dict = {}
     selected_subjects = sorted(selected_subjects)
-    with open(os.path.join(summary_path), 'a') as f:
+    with open(os.path.join(summary_path), "a") as f:
         f.write("\n------category level sta------\n")
     for subject in selected_subjects:
         if subject not in sta_dict:
@@ -319,12 +377,18 @@ def eval_model(model_path, lora_config_path='', lora_weights_path='', n_train=5,
         test_df = select_by_category(full_test_df, subject)
         val_df = select_by_category(full_val_df, subject)
         output_path = os.path.join(save_result_dir, "{}.json".format(subject))
-        acc, corr_count, wrong_count = eval_cot(n_train, subject, model, tokenizer, val_df, test_df, output_path, device_map)
+        acc, corr_count, wrong_count = eval_cot(
+            n_train, subject, model, tokenizer, val_df, test_df, output_path, device_map
+        )
         sta_dict[subject]["corr"] = corr_count
         sta_dict[subject]["wrong"] = wrong_count
         sta_dict[subject]["accu"] = acc
-        with open(os.path.join(summary_path), 'a') as f:
-            f.write("Average accuracy {:.4f} - {}\n".format(sta_dict[subject]["accu"], subject))
+        with open(os.path.join(summary_path), "a") as f:
+            f.write(
+                "Average accuracy {:.4f} - {}\n".format(
+                    sta_dict[subject]["accu"], subject
+                )
+            )
     total_corr, total_wrong = 0.0, 0.0
     for k, v in sta_dict.items():
         total_corr += v["corr"]
@@ -332,7 +396,7 @@ def eval_model(model_path, lora_config_path='', lora_weights_path='', n_train=5,
     total_accu = total_corr / (total_corr + total_wrong + 0.000001)
     sta_dict["total"] = {"corr": total_corr, "wrong": total_wrong, "accu": total_accu}
 
-    with open(os.path.join(summary_path), 'a') as f:
+    with open(os.path.join(summary_path), "a") as f:
         f.write("\n------average acc sta------\n")
         weighted_acc = total_accu
         f.write("Average accuracy: {:.4f}\n".format(weighted_acc))
@@ -341,35 +405,80 @@ def eval_model(model_path, lora_config_path='', lora_weights_path='', n_train=5,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ntrain", "-k", type=int, default=1, help="few-shot examples amount, default is 3")
-    parser.add_argument("--selected_subjects", "-sub", type=str, default="history", help="selected subjects: biology, business, chemistry, computer science, economics, engineering, health, history, law, math, philosophy, physics, psychology, other, all. default is 'all'")
-    parser.add_argument("--save_dir", "-s", type=str, default="eval_results", help="evaluation results save dir, default is 'eval_results'")
-    parser.add_argument("--lora_config_path", "-lc", default="/home/zxd/workspace/opensource/FLB/output",type=str, help="lora config folder path")
-    parser.add_argument("--lora_weights_path", "-lw",default="/home/zxd/workspace/qstar/FLB/save/local_output_0/20240826/212656/pytorch_model.bin", type=str, help="lora weights bin file path")
-    parser.add_argument("--global_record_file", "-grf", type=str,
-                        default="eval_record_collection.csv", help="global log record file, default is 'eval_record_collection.csv'")
-    parser.add_argument("--model", "-m", type=str, default="/home/zxd/workspace/models/phi3-4k-mini", help="local model path")
+    parser.add_argument(
+        "--ntrain",
+        "-k",
+        type=int,
+        default=1,
+        help="few-shot examples amount, default is 3",
+    )
+    parser.add_argument(
+        "--selected_subjects",
+        "-sub",
+        type=str,
+        default="history",
+        help="selected subjects: biology, business, chemistry, computer science, economics, engineering, health, history, law, math, philosophy, physics, psychology, other, all. default is 'all'",
+    )
+    parser.add_argument(
+        "--save_dir",
+        "-s",
+        type=str,
+        default="eval_results",
+        help="evaluation results save dir, default is 'eval_results'",
+    )
+    parser.add_argument(
+        "--lora_config_path",
+        "-lc",
+        default="/home/zxd/workspace/opensource/FLB/output",
+        type=str,
+        help="lora config folder path",
+    )
+    parser.add_argument(
+        "--lora_weights_path",
+        "-lw",
+        default="/home/zxd/workspace/qstar/FLB/save/local_output_0/20240826/212656/pytorch_model.bin",
+        type=str,
+        help="lora weights bin file path",
+    )
+    parser.add_argument(
+        "--global_record_file",
+        "-grf",
+        type=str,
+        default="eval_record_collection.csv",
+        help="global log record file, default is 'eval_record_collection.csv'",
+    )
+    parser.add_argument(
+        "--model",
+        "-m",
+        type=str,
+        default="/home/zxd/workspace/models/phi3-4k-mini",
+        help="local model path",
+    )
 
     args = parser.parse_args()
     os.makedirs(args.save_dir, exist_ok=True)
     global_record_file = args.global_record_file
-    save_result_dir = os.path.join(
-        args.save_dir, "/".join(args_generate_path(args))
-    )
+    save_result_dir = os.path.join(args.save_dir, "/".join(args_generate_path(args)))
     file_prefix = "-".join(args_generate_path(args))
     timestamp = time.time()
-    time_str = time.strftime('%m-%d_%H-%M', time.localtime(timestamp))
+    time_str = time.strftime("%m-%d_%H-%M", time.localtime(timestamp))
     file_name = f"{file_prefix}_{time_str}_summary.txt"
     summary_path = os.path.join(args.save_dir, "summary", file_name)
     os.makedirs(os.path.join(args.save_dir, "summary"), exist_ok=True)
     os.makedirs(save_result_dir, exist_ok=True)
     save_log_dir = os.path.join(args.save_dir, "log")
     os.makedirs(save_log_dir, exist_ok=True)
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s',
-                        handlers=[logging.FileHandler(os.path.join(save_log_dir,
-                                                                   file_name.replace("_summary.txt",
-                                                                                     "_logfile.log"))),
-                                  logging.StreamHandler(sys.stdout)])
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[
+            logging.FileHandler(
+                os.path.join(
+                    save_log_dir, file_name.replace("_summary.txt", "_logfile.log")
+                )
+            ),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
 
     main()
-

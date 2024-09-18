@@ -18,11 +18,12 @@ def get_model_and_tokenizer(cfg_path):
         torch_dtype = None
 
     if config_detail.model.quantization == 4:
-        quantization_config = BitsAndBytesConfig(load_in_4bit=True,
-                                                 bnb_4bit_quant_type="nf4",
-                                                 bnb_4bit_use_double_quant=True,
-                                                 bnb_4bit_compute_dtype=torch_dtype
-                                                 )
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch_dtype,
+        )
     elif config_detail.model.quantization == 8:
         quantization_config = BitsAndBytesConfig(load_in_8bit=True)
     else:

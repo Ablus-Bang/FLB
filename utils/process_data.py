@@ -31,18 +31,23 @@ def apply_chat_template(
 
 
 def process_dataset_for_unified_format(dataset_name, dataset, tokenizer, seed=1234):
-    if dataset_name in ["lucasmccabe-lmi/CodeAlpaca-20k",
-                        "yahma/alpaca-cleaned",
-                        "FinGPT/fingpt-sentiment-train",
-                        "WizardLM/WizardLM_evol_instruct_70k",
-                        "tatsu-lab/alpaca",
-                        "vicgalle/alpaca-gpt4",
-                        "gbharti/finance-alpaca",
-                        "TIGER-Lab/MathInstruct",
-                        "lighteval/MATH",
-                        "gsm8k",
-                        "medalpaca/medical_meadow_medical_flashcards"]:
-        if dataset_name in ["WizardLM/WizardLM_evol_instruct_70k", "TIGER-Lab/MathInstruct"]:
+    if dataset_name in [
+        "lucasmccabe-lmi/CodeAlpaca-20k",
+        "yahma/alpaca-cleaned",
+        "FinGPT/fingpt-sentiment-train",
+        "WizardLM/WizardLM_evol_instruct_70k",
+        "tatsu-lab/alpaca",
+        "vicgalle/alpaca-gpt4",
+        "gbharti/finance-alpaca",
+        "TIGER-Lab/MathInstruct",
+        "lighteval/MATH",
+        "gsm8k",
+        "medalpaca/medical_meadow_medical_flashcards",
+    ]:
+        if dataset_name in [
+            "WizardLM/WizardLM_evol_instruct_70k",
+            "TIGER-Lab/MathInstruct",
+        ]:
             dataset = dataset.rename_column("instruction", "input")
         if dataset_name in ["lighteval/MATH"]:
             dataset = dataset.rename_column("solution", "output")
@@ -52,8 +57,10 @@ def process_dataset_for_unified_format(dataset_name, dataset, tokenizer, seed=12
             dataset = dataset.rename_column("answer", "output")
 
     column_names = list(dataset.features)
-    if 'input' not in column_names or 'output' not in column_names:
-        raise ValueError(f"Invalid dataset format. The dataset {dataset_name} must contain 'input' and 'output' columns.")
+    if "input" not in column_names or "output" not in column_names:
+        raise ValueError(
+            f"Invalid dataset format. The dataset {dataset_name} must contain 'input' and 'output' columns."
+        )
     processed_dataset = dataset.map(
         apply_chat_template,
         fn_kwargs={"tokenizer": tokenizer},

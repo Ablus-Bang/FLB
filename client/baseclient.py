@@ -5,6 +5,7 @@ import sys
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
+
 class BaseClient(ABC):
     def __init__(self, client_id, cfg_path):
         self.cfg_path = cfg_path
@@ -14,7 +15,7 @@ class BaseClient(ABC):
     @abstractmethod
     def start(self):
         raise NotImplementedError()
-    
+
     @abstractmethod
     def run_grpc_client(self):
         raise NotImplementedError()

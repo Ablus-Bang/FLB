@@ -1,6 +1,7 @@
 import argparse
 from os import path
 import sys
+
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from client.client import BaseClient
@@ -24,16 +25,18 @@ def run(client_id):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run local client"
+    parser = argparse.ArgumentParser(description="Run local client")
+    parser.add_argument("--client_id", required=False, type=str, default="12366")
+    parser.add_argument(
+        "--local_update",
+        required=False,
+        type=bool,
+        default=False,
+        help="update local model by merging latest weight file from server side to local model",
     )
-    parser.add_argument("--client_id", required=False, type=str, default='12366')
-    parser.add_argument("--local_update", required=False, type=bool, default=False, help="update local model by merging latest weight file from server side to local model")
     args = parser.parse_args()
 
     if args.local_update:
         update(args.client_id)
     else:
         run(args.client_id)
-
-

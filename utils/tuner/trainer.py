@@ -307,8 +307,6 @@ def train(
     return dict(flattened_tree)
 
 
-
-
 def save_adapter(
     model: nn.Module,
     adapter_file: Union[str, Path],

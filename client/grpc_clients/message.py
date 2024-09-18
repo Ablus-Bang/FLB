@@ -6,9 +6,7 @@ SEND_PARAMETERS = "send_parameters"
 
 class ClientSideMetadata:
     def __init__(self, message_type):
-        var_dict = {
-            "_message_type": message_type
-        }
+        var_dict = {"_message_type": message_type}
         self.__dict__.update(var_dict)
 
     @property
@@ -29,10 +27,7 @@ class ClientSideMetadata:
 
 class ClientSideMessage:
     def __init__(self, content: Dict, metadata: ClientSideMetadata) -> None:
-        var_dict = {
-            "_content": content,
-            "_metadata": metadata
-        }
+        var_dict = {"_content": content, "_metadata": metadata}
         self.__dict__.update(var_dict)
 
     @property
